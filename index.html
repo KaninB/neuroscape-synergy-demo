@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neuroscape decklist synergy curves</title>
+  <style>
+    :root { --ink:#203043; --muted:#637588; --blue:#1e6c8a; --orange:#c46a37;
+      --green:#39836f; --purple:#7a5da2; --line:#d9e2e9; --paper:#f5f8fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    header { background:linear-gradient(122deg,#11374d,#1e6c8a); color:white; padding:36px max(22px,calc((100vw - 1420px)/2)); }
+    header .eyebrow { font-size:12px; letter-spacing:.15em; text-transform:uppercase; color:#b9dce9; font-weight:700; }
+    h1 { font-size:clamp(30px,3.4vw,48px); line-height:1.13; letter-spacing:-.035em; margin:8px 0 12px; }
+    header p { max-width:780px; margin:0; color:#e4f0f4; font-size:16px; }
+    main { max-width:1420px; margin:26px auto 65px; padding:0 22px; display:grid;
+      grid-template-columns:minmax(310px,410px) minmax(0,1fr); gap:22px; align-items:start; }
+    .panel { background:white; border:1px solid var(--line); border-radius:16px; box-shadow:0 5px 22px #18334a0a; }
+    .input-panel { padding:23px; position:sticky; top:18px; }
+    .content-panel { padding:25px; min-height:590px; }
+    h2 { margin:0 0 13px; font-size:22px; letter-spacing:-.02em; }
+    h3 { margin:0 0 8px; font-size:17px; }
+    p { margin:8px 0 14px; }
+    .hint,.muted { color:var(--muted); font-size:13px; }
+    label { display:block; margin:17px 0 6px; font-weight:650; }
+    select,textarea,input[type=file],input[type=number] { width:100%; border:1px solid #cbd7df; border-radius:9px;
+      background:white; color:var(--ink); padding:10px 12px; font:inherit; }
+    select:focus,textarea:focus,input:focus { outline:3px solid #abd1de; border-color:var(--blue); }
+    textarea { min-height:280px; resize:vertical; font:13px/1.48 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .row > * { flex:1; }
+    .inline-actions { display:flex; gap:12px; align-items:center; margin:9px 0 1px; }
+    button { cursor:pointer; border:0; border-radius:10px; background:var(--blue); color:white;
+      padding:11px 15px; font:inherit; font-weight:700; }
+    button:hover { background:#155672; }
+    button:disabled { cursor:wait; opacity:.6; }
+    button.secondary { background:#e8f1f5; color:#185872; }
+    button.secondary:hover { background:#d7e9f0; }
+    .submit { width:100%; margin-top:20px; padding:13px; font-size:16px; }
+    .note { padding:13px 15px; border-left:4px solid var(--orange); border-radius:8px;
+      background:#fff5ed; color:#6f4429; margin:14px 0; font-size:13px; }
+    .error { padding:12px 14px; background:#fff0f0; color:#8f3030; border:1px solid #e9b8b8;
+      border-radius:9px; margin-top:12px; white-space:pre-wrap; }
+    .countbox { background:#eef5f8; border:1px solid #d2e4eb; border-radius:10px;
+      padding:11px 13px; margin:10px 0; }
+    .countbox strong { display:block; font-size:16px; }
+    .countbox small { color:var(--muted); display:block; }
+    .countbox.invalid { background:#fff5ed; border-color:#e8c9ad; }
+    .status { background:#edf5f8; border-radius:11px; padding:16px; margin:16px 0; }
+    .progress { height:10px; border-radius:99px; background:#d6e4ea; overflow:hidden; margin:10px 0 4px; }
+    .progress > div { height:100%; width:0%; background:var(--green); transition:width .25s; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:15px 0; }
+    .stat { background:#f3f7f9; border-radius:10px; padding:12px; }
+    .stat b { display:block; font-size:20px; line-height:1.2; }
+    .stat small { display:block; color:var(--muted); margin-top:4px; }
+    .chart-box { border:1px solid var(--line); border-radius:12px; padding:12px; overflow:hidden; }
+    .chart-box h3 { margin-left:9px; }
+    .chart-box svg { width:100%; height:auto; display:block; }
+    .legend { display:flex; gap:15px; flex-wrap:wrap; margin:2px 10px 7px; font-size:13px; }
+    .legend span { display:inline-flex; align-items:center; gap:6px; }
+    .legend i { display:inline-block; width:19px; height:4px; border-radius:2px; }
+    .section { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); }
+    .section-head { display:flex; justify-content:space-between; gap:14px; align-items:start; }
+    table { border-collapse:collapse; width:100%; font-size:13px; }
+    th,td { text-align:left; padding:7px 9px; border-bottom:1px solid #e7edf1; }
+    th { color:#51697a; font-weight:650; background:#f4f8fa; }
+    .table-scroll { overflow-x:auto; }
+    .pill { display:inline-block; background:#edf3f6; border-radius:99px; padding:4px 9px; font-size:12px; margin:3px 4px 3px 0; }
+    .formula { font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+      background:#f3f7f9; border-radius:9px; padding:12px; overflow:auto; }
+    .empty { display:flex; flex-direction:column; justify-content:center; align-items:center;
+      min-height:400px; color:var(--muted); text-align:center; }
+    .empty strong { color:var(--ink); font-size:21px; }
+    @media (max-width:900px) { main { grid-template-columns:1fr; } .input-panel { position:static; }
+      .stat-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:600px) { .grid-2 { grid-template-columns:1fr; } header { padding:28px 22px; }
+      .content-panel,.input-panel { padding:18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Neuroscape • Deck analysis</div>
+    <h1>When does your synergy come online?</h1>
+    <p>Paste an AZ Universe export or a card-count list. The calculator runs entirely in this browser, including the exact draw math and estimated turn curves.</p>
+  </header>
+  <main>
+    <section class="panel input-panel" aria-label="Decklist input">
+      <h2>Your deck</h2>
+      <p class="hint">Paste an AZ Universe export to detect its Mainframe and count only the Cyberdeck. You can also enter a plain card-count list.</p>
+      <label for="mainframe">Mainframe</label>
+      <select id="mainframe"></select>
+      <label for="decklist">Decklist</label>
+      <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
+      <div id="deckCount" class="countbox"><strong>0 cyberdeck cards</strong><small>Paste a list to count its cards.</small></div>
+      <div class="inline-actions">
+        <button class="secondary" type="button" id="example">Load 50-card example</button>
+        <span class="hint">or upload .txt / .csv / .md</span>
+      </div>
+      <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload decklist file">
+      <div class="row">
+        <div><label for="trials">Trials per position</label>
+          <select id="trials"><option value="250" selected>250 · quick</option><option value="500">500 · standard</option>
+            <option value="1000">1,000 · detailed</option><option value="5000">5,000 · long run</option></select></div>
+        <div><label for="turns">Own turns</label>
+          <select id="turns"><option value="12" selected>1–12</option><option value="20">1–20</option></select></div>
+      </div>
+      <label for="ramTarget">RAM policy</label>
+      <select id="ramTarget"><option value="auto" selected>Choose from a small pilot</option>
+        <option value="4">Target 4 installed RAM</option><option value="6">Target 6 installed RAM</option>
+        <option value="8">Target 8 installed RAM</option><option value="10">Target 10 installed RAM</option>
+        <option value="12">Target 12 installed RAM</option><option value="16">Target 16 installed RAM</option>
+        <option value="20">Target 20 installed RAM</option></select>
+      <button class="submit" id="analyze" type="button">Calculate curves</button>
+      <div id="inputError" class="error" hidden></div>
+      <div class="note"><strong>Structural model.</strong> The turn estimate omits printed card effects, tokens, attacks, and lethal endings. It uses a heuristic play policy and optional character force quits. Your deck stays in this browser.</div>
+    </section>
+    <section class="panel content-panel" aria-label="Analysis results">
+      <div id="placeholder" class="empty"><strong>Your curves will appear here</strong>
+        <p>Use the example to see the form, or paste a 50–255-card decklist.</p></div>
+      <div id="status" class="status" hidden><strong id="phase">Waiting</strong>
+        <div class="progress"><div id="progressFill"></div></div>
+        <span id="progressText" class="hint"></span></div>
+      <div id="results" hidden>
+        <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div>
+          <button type="button" class="secondary" id="download">Download JSON</button></div>
+        <div id="stats" class="stat-grid"></div>
+        <div class="section"><h2>Reached by your own turn</h2>
+          <p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Wilson 95% intervals appear in the table below.</p>
+          <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div>
+            <div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
+          <div id="turnLegend" class="legend"></div><div id="milestoneTable" class="table-scroll"></div></div>
+        <div class="section"><h2>Exact printed-card access</h2>
+          <p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
+          <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div>
+            <div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
+          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p>
+          <div id="drawTable" class="table-scroll"></div></div>
+        <div class="section"><h2>What is in this deck?</h2><div id="sourceSummary"></div></div>
+        <div class="section"><h2>How the numbers are calculated</h2>
+          <p>The exact calculation sums all without-replacement card combinations whose printed faction-vector and non-RAM persistent count meet a tier. Dual-faction cards can supply both icons but only one board object.</p>
+          <div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>
+            P(reached by turn t) ≈ simulated games with first hit by t / trials</div>
+          <p class="hint">The RAM target is chosen on separate pilot shuffles when “auto” is selected. The final evaluation uses independent shuffles. The structural simulator observes the hand but never the future deck order.</p>
+          <div id="warnings" class="note"></div></div>
+      </div>
+    </section>
+  </main>
+  <script src="catalog.js"></script>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
