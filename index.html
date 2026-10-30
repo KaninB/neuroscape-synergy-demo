@@ -3,152 +3,177 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171A1D">
   <title>Neuroscape decklist synergy curves</title>
   <style>
-    :root { --ink:#203043; --muted:#637588; --blue:#1e6c8a; --orange:#c46a37;
-      --green:#39836f; --purple:#7a5da2; --line:#d9e2e9; --paper:#f5f8fa; }
+    :root {
+      --page:#171A1D; --panel:#262B2F; --raised:#353B40; --text:#F9FAFB; --muted:#BCC4D0;
+      --action:#24C8A5; --action-ink:#06261F; --line:#4B565E; --danger:#F0785A; --warning:#F4B942;
+      --series-1:#24C8A5; --series-2:#E25C8D; --series-3:#F4B942;
+      --series-4:#8B7CF6; --series-5:#56B4E9; --series-6:#F0785A; color-scheme:dark;
+    }
     * { box-sizing:border-box; }
     [hidden] { display:none !important; }
-    body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
-    header { background:linear-gradient(122deg,#11374d,#1e6c8a); color:white; padding:36px max(22px,calc((100vw - 1420px)/2)); }
-    header .eyebrow { font-size:12px; letter-spacing:.15em; text-transform:uppercase; color:#b9dce9; font-weight:700; }
-    h1 { font-size:clamp(30px,3.4vw,48px); line-height:1.13; letter-spacing:-.035em; margin:8px 0 12px; }
-    header p { max-width:780px; margin:0; color:#e4f0f4; font-size:16px; }
-    main { max-width:1420px; margin:26px auto 65px; padding:0 22px; display:grid;
-      grid-template-columns:minmax(310px,410px) minmax(0,1fr); gap:22px; align-items:start; }
-    .panel { background:white; border:1px solid var(--line); border-radius:16px; box-shadow:0 5px 22px #18334a0a; }
-    .input-panel { padding:23px; position:sticky; top:18px; }
-    .content-panel { padding:25px; min-height:590px; }
-    h2 { margin:0 0 13px; font-size:22px; letter-spacing:-.02em; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background-color:var(--page); color:var(--text);
+      background-image:linear-gradient(#ffffff0b 1px,transparent 1px),linear-gradient(90deg,#ffffff0b 1px,transparent 1px);
+      background-size:72px 72px; font:15px/1.52 Verdana,Arial,sans-serif; }
+    button,select,textarea,input { font:inherit; }
+    button { cursor:pointer; }
+    .spectrum-bar { height:7px; background:linear-gradient(90deg,var(--series-1) 0 16.66%,var(--series-2) 16.66% 33.33%,
+      var(--series-3) 33.33% 50%,var(--series-4) 50% 66.66%,var(--series-5) 66.66% 83.33%,var(--series-6) 83.33%); }
+    .site-header { background:#171A1D; border-bottom:1px solid #3b454c; }
+    .header-inner { max-width:1420px; margin:auto; padding:31px 22px 32px; display:grid;
+      grid-template-columns:140px minmax(0,1fr) minmax(210px,285px); gap:26px; align-items:center; }
+    .site-mark { width:132px; height:78px; object-fit:contain; }
+    .eyebrow { color:var(--action); font:700 11px/1.2 Arial,Helvetica,sans-serif; letter-spacing:.15em; text-transform:uppercase; }
+    h1,h2,h3 { font-family:Arial,Helvetica,sans-serif; }
+    h1 { font-size:clamp(31px,3.25vw,49px); line-height:1.08; letter-spacing:-.035em; margin:8px 0 11px; }
+    .site-header p { max-width:780px; margin:0; color:var(--muted); font-size:15px; }
+    .header-badge { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:14px 16px; color:var(--muted); font-size:12px; }
+    .header-badge strong { display:block; color:var(--text); margin-bottom:5px; font:700 12px/1.3 Arial,Helvetica,sans-serif; text-transform:uppercase; }
+    main { max-width:1420px; margin:23px auto 68px; padding:0 22px; display:grid;
+      grid-template-columns:minmax(330px,420px) minmax(0,1fr); gap:18px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:4px; box-shadow:0 11px 32px #0004; }
+    .input-panel { padding:22px; position:sticky; top:14px; }
+    .content-panel { padding:25px; min-height:620px; }
+    h2 { margin:0 0 12px; font-size:22px; line-height:1.2; letter-spacing:-.015em; }
     h3 { margin:0 0 8px; font-size:17px; }
     p { margin:8px 0 14px; }
-    .hint,.muted { color:var(--muted); font-size:13px; }
-    label { display:block; margin:17px 0 6px; font-weight:650; }
-    select,textarea,input[type=file],input[type=number] { width:100%; border:1px solid #cbd7df; border-radius:9px;
-      background:white; color:var(--ink); padding:10px 12px; font:inherit; }
-    select:focus,textarea:focus,input:focus { outline:3px solid #abd1de; border-color:var(--blue); }
-    textarea { min-height:280px; resize:vertical; font:13px/1.48 ui-monospace,SFMono-Regular,Menlo,monospace; }
-    .row { display:flex; gap:10px; align-items:center; }
-    .row > * { flex:1; }
-    .inline-actions { display:flex; gap:12px; align-items:center; margin:9px 0 1px; }
-    button { cursor:pointer; border:0; border-radius:10px; background:var(--blue); color:white;
-      padding:11px 15px; font:inherit; font-weight:700; }
-    button:hover { background:#155672; }
-    button:disabled { cursor:wait; opacity:.6; }
-    button.secondary { background:#e8f1f5; color:#185872; }
-    button.secondary:hover { background:#d7e9f0; }
-    .submit { width:100%; margin-top:20px; padding:13px; font-size:16px; }
-    .note { padding:13px 15px; border-left:4px solid var(--orange); border-radius:8px;
-      background:#fff5ed; color:#6f4429; margin:14px 0; font-size:13px; }
-    .error { padding:12px 14px; background:#fff0f0; color:#8f3030; border:1px solid #e9b8b8;
-      border-radius:9px; margin-top:12px; white-space:pre-wrap; }
-    .countbox { background:#eef5f8; border:1px solid #d2e4eb; border-radius:10px;
-      padding:11px 13px; margin:10px 0; }
-    .countbox strong { display:block; font-size:16px; }
-    .countbox small { color:var(--muted); display:block; }
-    .countbox.invalid { background:#fff5ed; border-color:#e8c9ad; }
-    .status { background:#edf5f8; border-radius:11px; padding:16px; margin:16px 0; }
-    .progress { height:10px; border-radius:99px; background:#d6e4ea; overflow:hidden; margin:10px 0 4px; }
-    .progress > div { height:100%; width:0%; background:var(--green); transition:width .25s; }
-    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-    .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:15px 0; }
-    .stat { background:#f3f7f9; border-radius:10px; padding:12px; }
-    .stat b { display:block; font-size:20px; line-height:1.2; }
+    .hint,.muted { color:var(--muted); font-size:12px; }
+    .workflow { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--line); margin:0 0 17px; }
+    .workflow span { padding:10px 8px; background:var(--raised); color:var(--muted); text-align:center;
+      font:700 10px/1.25 Arial,Helvetica,sans-serif; text-transform:uppercase; letter-spacing:.04em; }
+    .workflow span + span { border-left:1px solid var(--line); }
+    .workflow b { color:var(--action); margin-right:3px; }
+    .upload-block { border:1px solid var(--line); background:#202428; border-radius:4px; padding:14px; margin-bottom:13px; }
+    .upload-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
+    .upload-head strong { font:700 13px/1.3 Arial,Helvetica,sans-serif; }
+    label,.label-row { display:flex; align-items:center; gap:7px; margin:16px 0 6px; font-weight:700; font-size:13px; }
+    .label-row label { margin:0; }
+    select,textarea,input[type=file],input[type=number] { width:100%; border:1px solid #5b6871; border-radius:4px;
+      background:var(--raised); color:var(--text); padding:10px 11px; }
+    input[type=file]::file-selector-button { border:0; border-radius:3px; background:var(--action); color:var(--action-ink);
+      padding:8px 10px; margin-right:10px; font-weight:700; cursor:pointer; }
+    select:focus,textarea:focus,input:focus,button:focus-visible { outline:3px solid #24c8a566; outline-offset:2px; border-color:var(--action); }
+    textarea { min-height:258px; resize:vertical; font:12px/1.48 "Courier New",ui-monospace,monospace; }
+    .row { display:flex; gap:10px; align-items:start; }
+    .row > * { flex:1; min-width:0; }
+    .inline-actions { display:flex; gap:10px; align-items:center; margin-top:10px; }
+    button { border:1px solid transparent; border-radius:4px; background:var(--action); color:var(--action-ink); padding:10px 14px; font-weight:700; }
+    button:hover { filter:brightness(1.09); }
+    button:disabled { cursor:not-allowed; opacity:.42; filter:none; }
+    button.secondary { background:var(--raised); color:var(--text); border-color:#617079; }
+    button.secondary:hover { background:#414a51; }
+    .submit { width:100%; margin-top:18px; padding:13px; font-size:15px; text-transform:uppercase; letter-spacing:.035em; }
+    .info-wrap { position:relative; display:inline-flex; }
+    .info-button { width:19px; height:19px; padding:0; border-radius:50%; background:transparent; color:var(--muted);
+      border:1px solid var(--muted); font:700 11px/17px Arial,sans-serif; }
+    .info-popover { position:absolute; z-index:10; left:27px; top:-10px; width:min(285px,72vw); padding:11px 12px;
+      background:#101315; color:var(--text); border:1px solid var(--action); border-radius:4px; box-shadow:0 12px 30px #0009;
+      font-size:11px; font-weight:400; line-height:1.45; opacity:0; visibility:hidden; transform:translateY(4px); transition:.14s ease; }
+    .info-wrap:hover .info-popover,.info-wrap.open .info-popover { opacity:1; visibility:visible; transform:none; }
+    .setting-explanation { color:var(--muted); font-size:11px; margin:7px 0 0; }
+    .note { padding:13px 14px; border-left:4px solid var(--warning); border-radius:3px; background:#30353a; color:var(--muted); margin:14px 0 0; font-size:11px; }
+    .note strong { color:var(--text); }
+    .error { padding:11px 13px; background:#3a2928; color:#ffd4c9; border:1px solid var(--danger); border-radius:4px; margin-top:11px; white-space:pre-wrap; font-size:12px; }
+    .file-error { margin:8px 0 0; }
+    .countbox { background:var(--raised); border:1px solid #59656e; border-radius:4px; padding:11px 12px; margin:10px 0 0; }
+    .countbox strong { display:block; font:700 15px/1.25 Arial,Helvetica,sans-serif; }
+    .countbox small { color:var(--muted); display:block; margin-top:4px; }
+    .countbox.invalid { background:#3a3028; border-color:var(--warning); }
+    .status { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:18px; margin:10px 0; }
+    .progress { height:11px; border-radius:99px; background:#1b2023; overflow:hidden; margin:12px 0 5px; }
+    .progress > div { height:100%; width:0%; background:var(--action); transition:width .25s; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin:15px 0; }
+    .stat { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:12px; }
+    .stat b { display:block; font:700 20px/1.2 "Courier New",ui-monospace,monospace; }
     .stat small { display:block; color:var(--muted); margin-top:4px; }
-    .chart-box { border:1px solid var(--line); border-radius:12px; padding:12px; overflow:hidden; }
-    .chart-box h3 { margin-left:9px; }
+    .chart-box { border:1px solid var(--line); border-radius:4px; background:#202428; padding:12px; overflow:hidden; }
+    .chart-box h3 { margin-left:7px; text-transform:uppercase; font-size:13px; letter-spacing:.035em; }
     .chart-box svg { width:100%; height:auto; display:block; }
-    .legend { display:flex; gap:15px; flex-wrap:wrap; margin:2px 10px 7px; font-size:13px; }
-    .legend span { display:inline-flex; align-items:center; gap:6px; }
-    .legend i { display:inline-block; width:19px; height:4px; border-radius:2px; }
-    .section { margin-top:28px; padding-top:22px; border-top:1px solid var(--line); }
+    .legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:8px 14px; margin:11px 4px; font-size:11px; }
+    .legend span { display:flex; align-items:center; gap:8px; color:var(--muted); }
+    .legend svg { width:38px; height:8px; flex:0 0 38px; overflow:visible; }
+    .section { margin-top:26px; padding-top:21px; border-top:1px solid var(--line); }
     .section-head { display:flex; justify-content:space-between; gap:14px; align-items:start; }
-    table { border-collapse:collapse; width:100%; font-size:13px; }
-    th,td { text-align:left; padding:7px 9px; border-bottom:1px solid #e7edf1; }
-    th { color:#51697a; font-weight:650; background:#f4f8fa; }
-    .table-scroll { overflow-x:auto; }
-    .pill { display:inline-block; background:#edf3f6; border-radius:99px; padding:4px 9px; font-size:12px; margin:3px 4px 3px 0; }
-    .formula { font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
-      background:#f3f7f9; border-radius:9px; padding:12px; overflow:auto; }
-    .empty { display:flex; flex-direction:column; justify-content:center; align-items:center;
-      min-height:400px; color:var(--muted); text-align:center; }
-    .empty strong { color:var(--ink); font-size:21px; }
-    @media (max-width:900px) { main { grid-template-columns:1fr; } .input-panel { position:static; }
-      .stat-grid { grid-template-columns:repeat(2,1fr); } }
-    @media (max-width:600px) { .grid-2 { grid-template-columns:1fr; } header { padding:28px 22px; }
-      .content-panel,.input-panel { padding:18px; } }
+    table { border-collapse:collapse; width:100%; font-size:11px; }
+    th,td { text-align:left; padding:8px 9px; border-bottom:1px solid #4c565d; }
+    th { color:var(--muted); font-weight:700; background:var(--raised); text-transform:uppercase; font-size:10px; }
+    td { font-family:"Courier New",ui-monospace,monospace; }
+    .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:4px; }
+    .pill { display:inline-block; background:var(--raised); border:1px solid var(--line); border-radius:99px; padding:4px 9px; font-size:11px; margin:3px 4px 3px 0; }
+    .formula { font:12px/1.58 "Courier New",ui-monospace,monospace; background:#161a1d; border:1px solid var(--line); border-radius:4px; padding:13px; overflow:auto; color:var(--text); }
+    .empty { display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:470px; color:var(--muted); text-align:center; }
+    .empty img { width:118px; height:72px; opacity:.82; margin-bottom:17px; }
+    .empty strong { color:var(--text); font:700 21px/1.2 Arial,Helvetica,sans-serif; }
+    @media (max-width:1020px) { .header-inner { grid-template-columns:105px minmax(0,1fr); } .site-mark { width:100px; }
+      .header-badge { grid-column:1/-1; } main { grid-template-columns:1fr; } .input-panel { position:static; } }
+    @media (max-width:650px) { .header-inner { display:block; padding:24px 18px 26px; } .site-mark { width:92px; height:58px; margin-bottom:10px; }
+      .header-badge { margin-top:18px; } main { padding:0 12px; margin-top:14px; } .content-panel,.input-panel { padding:16px; }
+      .grid-2 { grid-template-columns:1fr; } .stat-grid { grid-template-columns:repeat(2,1fr); } .row { display:block; }
+      .section-head { display:block; } .section-head button { margin:0 0 12px; } .workflow span { font-size:9px; padding:9px 4px; } }
   </style>
 </head>
 <body>
-  <header>
-    <div class="eyebrow">Neuroscape • Deck analysis</div>
-    <h1>When does your synergy come online?</h1>
-    <p>Paste an AZ Universe export or a card-count list. The calculator runs entirely in this browser, including the exact draw math and estimated turn curves.</p>
+  <header class="site-header">
+    <div class="spectrum-bar"></div>
+    <div class="header-inner">
+      <img class="site-mark" src="assets/logo-circuit-ram.svg" alt="Stylized RAM circuit mark">
+      <div><div class="eyebrow">Neuroscape / Deck analysis</div><h1>When does your synergy come online?</h1>
+        <p>Import an AZ Universe deck or paste a card-count list. The calculator runs exact draw math and estimated turn curves entirely in this browser.</p></div>
+      <div class="header-badge"><strong>Structural calculator</strong>No account, upload, or server is involved. Results reflect the current structural model, not the full effect-aware game.</div>
+    </div>
   </header>
   <main>
     <section class="panel input-panel" aria-label="Decklist input">
       <h2>Your deck</h2>
-      <p class="hint">Paste an AZ Universe export to detect its Mainframe and count only the Cyberdeck. You can also enter a plain card-count list.</p>
-      <label for="mainframe">Mainframe</label>
+      <div class="workflow" aria-label="Calculator workflow"><span><b>1</b> Upload</span><span><b>2</b> Review</span><span><b>3</b> Calculate</span></div>
+      <div class="upload-block">
+        <div class="upload-head"><strong>Upload deck export</strong><span class="hint">.txt / .csv / .md</span></div>
+        <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload deck export" aria-describedby="uploadHelp">
+        <p id="uploadHelp" class="hint">The complete file is placed in the editable decklist field below and never leaves this browser.</p>
+        <div class="inline-actions"><button class="secondary" type="button" id="example">Load 50-card example</button></div>
+        <div id="fileError" class="error file-error" hidden></div>
+      </div>
+      <div class="label-row"><label for="mainframe">Mainframe</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Mainframe" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Detected from an AZ Universe export when present. Otherwise, select the Mainframe manually.</span></span></div>
       <select id="mainframe"></select>
-      <label for="decklist">Decklist</label>
+      <div class="label-row"><label for="decklist">Decklist</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Decklist" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Only Cyberdeck cards enter the calculation. Mainframe, sideboard, and RAM sections are excluded from the Cyberdeck count.</span></span></div>
       <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
-      <div id="deckCount" class="countbox"><strong>0 cyberdeck cards</strong><small>Paste a list to count its cards.</small></div>
-      <div class="inline-actions">
-        <button class="secondary" type="button" id="example">Load 50-card example</button>
-        <span class="hint">or upload .txt / .csv / .md</span>
-      </div>
-      <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload decklist file">
+      <div id="deckCount" class="countbox" aria-live="polite"><strong>0 cyberdeck cards</strong><small>Paste a list or upload an export to count its cards.</small></div>
       <div class="row">
-        <div><label for="trials">Trials per position</label>
-          <select id="trials"><option value="250" selected>250 · quick</option><option value="500">500 · standard</option>
-            <option value="1000">1,000 · detailed</option><option value="5000">5,000 · long run</option></select></div>
-        <div><label for="turns">Own turns</label>
-          <select id="turns"><option value="12" selected>1–12</option><option value="20">1–20</option></select></div>
+        <div><div class="label-row"><label for="trials">Trials per position</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About trials per position" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Independent simulated games are run for going first and second. More trials reduce Monte Carlo noise and take longer.</span></span></div>
+          <select id="trials"><option value="250" selected>250 / quick</option><option value="500">500 / standard</option><option value="1000">1,000 / detailed</option><option value="5000">5,000 / long run</option></select></div>
+        <div><div class="label-row"><label for="turns">Own turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About own turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">The last own turn displayed on estimated turn curves. Turn 12 is the article horizon; turn 20 reveals slower decks.</span></span></div>
+          <select id="turns"><option value="12" selected>1-12</option><option value="20">1-20</option></select></div>
       </div>
-      <label for="ramTarget">RAM policy</label>
-      <select id="ramTarget"><option value="auto" selected>Choose from a small pilot</option>
-        <option value="4">Target 4 installed RAM</option><option value="6">Target 6 installed RAM</option>
-        <option value="8">Target 8 installed RAM</option><option value="10">Target 10 installed RAM</option>
-        <option value="12">Target 12 installed RAM</option><option value="16">Target 16 installed RAM</option>
-        <option value="20">Target 20 installed RAM</option></select>
-      <button class="submit" id="analyze" type="button">Calculate curves</button>
+      <div class="label-row"><label for="ramTarget">Installed RAM strategy</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Installed RAM strategy" aria-expanded="false">i</button><span class="info-popover" role="tooltip">This is where the simulated player stops installing RAM and starts prioritizing card draws. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
+      <select id="ramTarget"><option value="auto" selected>Choose automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
+      <p class="setting-explanation">Automatic tests several stopping points, then uses the one that reached this Mainframe's tiers earliest in pilot games.</p>
+      <button class="submit" id="analyze" type="button" disabled>Calculate curves</button>
       <div id="inputError" class="error" hidden></div>
-      <div class="note"><strong>Structural model.</strong> The turn estimate omits printed card effects, tokens, attacks, and lethal endings. It uses a heuristic play policy and optional character force quits. Your deck stays in this browser.</div>
+      <div class="note"><strong>Structural model.</strong> Turn estimates omit printed card effects, tokens, attacks, opponent interaction, and lethal endings. The heuristic may force quit characters. Your deck stays in this browser.</div>
     </section>
     <section class="panel content-panel" aria-label="Analysis results">
-      <div id="placeholder" class="empty"><strong>Your curves will appear here</strong>
-        <p>Use the example to see the form, or paste a 50–255-card decklist.</p></div>
-      <div id="status" class="status" hidden><strong id="phase">Waiting</strong>
-        <div class="progress"><div id="progressFill"></div></div>
-        <span id="progressText" class="hint"></span></div>
+      <div id="placeholder" class="empty"><img src="assets/logo-circuit-ram.svg" alt=""><strong>Your curves will appear here</strong><p>Upload an export, load the example, or paste a legal 50-255-card Cyberdeck.</p></div>
+      <div id="status" class="status" aria-live="polite" hidden><strong id="phase">Waiting</strong><div class="progress"><div id="progressFill"></div></div><span id="progressText" class="hint"></span></div>
       <div id="results" hidden>
-        <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div>
-          <button type="button" class="secondary" id="download">Download JSON</button></div>
+        <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><button type="button" class="secondary" id="download">Download JSON</button></div>
         <div id="stats" class="stat-grid"></div>
-        <div class="section"><h2>Reached by your own turn</h2>
-          <p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Wilson 95% intervals appear in the table below.</p>
-          <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div>
-            <div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
+        <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Wilson 95% intervals appear below.</p>
+          <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
           <div id="turnLegend" class="legend"></div><div id="milestoneTable" class="table-scroll"></div></div>
-        <div class="section"><h2>Exact printed-card access</h2>
-          <p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
-          <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div>
-            <div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
-          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p>
-          <div id="drawTable" class="table-scroll"></div></div>
+        <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
+          <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
+          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p><div id="drawTable" class="table-scroll"></div></div>
         <div class="section"><h2>What is in this deck?</h2><div id="sourceSummary"></div></div>
-        <div class="section"><h2>How the numbers are calculated</h2>
-          <p>The exact calculation sums all without-replacement card combinations whose printed faction-vector and non-RAM persistent count meet a tier. Dual-faction cards can supply both icons but only one board object.</p>
-          <div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>
-            P(reached by turn t) ≈ simulated games with first hit by t / trials</div>
-          <p class="hint">The RAM target is chosen on separate pilot shuffles when “auto” is selected. The final evaluation uses independent shuffles. The structural simulator observes the hand but never the future deck order.</p>
-          <div id="warnings" class="note"></div></div>
+        <div class="section"><h2>How the numbers are calculated</h2><p>The exact calculation sums all without-replacement card combinations whose printed faction-vector and non-RAM persistent count meet a tier. Dual-faction cards can supply both icons but only one board object.</p>
+          <div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div>
+          <p class="hint">Automatic RAM targets are selected on separate pilot shuffles. Final evaluation uses independent shuffles, and the simulator observes the hand but never the future deck order.</p><div id="warnings" class="note"></div></div>
       </div>
     </section>
   </main>
-  <script src="catalog.js"></script>
-  <script src="engine.js"></script>
-  <script src="app.js"></script>
+  <script src="catalog.js"></script><script src="engine.js"></script><script src="app.js"></script>
 </body>
 </html>

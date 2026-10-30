@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 112" role="img" aria-labelledby="title desc">
+  <title id="title">Circuit RAM logo candidate</title>
+  <desc id="desc">A charcoal RAM module with four grey chips, teal circuit traces, and teal connector pins.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 28h144v54H24z" fill="#262B2F" stroke="#BCC4D0" stroke-width="5"/>
+    <path d="M83 82h26l5 12H78z" fill="#171A1D" stroke="#BCC4D0" stroke-width="4"/>
+    <g fill="#353B40" stroke="#BCC4D0" stroke-width="3">
+      <rect x="37" y="41" width="24" height="25" rx="3"/>
+      <rect x="68" y="41" width="24" height="25" rx="3"/>
+      <rect x="100" y="41" width="24" height="25" rx="3"/>
+      <rect x="131" y="41" width="24" height="25" rx="3"/>
+    </g>
+    <g stroke="#24C8A5" stroke-width="5">
+      <path d="M49 41V23h27V12"/>
+      <path d="M143 41V23h-27V12"/>
+      <path d="M80 66v10"/>
+      <path d="M112 66v10"/>
+    </g>
+    <g fill="#24C8A5">
+      <circle cx="76" cy="12" r="6"/>
+      <circle cx="116" cy="12" r="6"/>
+      <path d="M33 82h10v18H33zm17 0h10v18H50zm82 0h10v18h-10zm17 0h10v18h-10z"/>
+    </g>
+  </g>
+</svg>

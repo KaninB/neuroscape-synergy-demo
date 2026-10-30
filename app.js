@@ -1,5 +1,6 @@
     const $ = id => document.getElementById(id);
-    const colors = ['#1e6c8a','#c46a37','#39836f','#7a5da2'];
+    const colors = ['#24C8A5','#E25C8D','#F4B942','#8B7CF6','#56B4E9','#F0785A'];
+    const lineStyles = ['', '8 5', '2 4', '', '8 5', '2 4'];
     const catalog = globalThis.NEUROSCAPE_CATALOG;
     const engine = globalThis.NEUROSCAPE_ENGINE;
     let latest = null, currentParse = null;
@@ -19,16 +20,16 @@
       const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
         'aria-label':`${xLabel} synergy probability chart`});
       for (const value of [0,.25,.5,.75,1]) {
-        svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#e2e9ed'}));
-        svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#657789','font-size':12},`${value*100}%`));
+        svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
+        svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':12},`${value*100}%`));
       }
       const ticks = xLabel === 'Own turn' ? [1,3,5,8,10,12,16,20].filter(x=>x>=xMin&&x<=xMax)
         : [5,8,12,16,20].filter(x=>x>=xMin&&x<=xMax);
       for (const value of ticks) {
-        svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#9aabb7'}));
-        svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#657789','font-size':12},String(value)));
+        svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#7B8992'}));
+        svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':12},String(value)));
       }
-      svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#516477','font-size':12},xLabel));
+      svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':12},xLabel));
       const tiers = [...new Set(rows.map(row=>row.tier))].sort((a,b)=>a-b);
       for (const [index,tier] of tiers.entries()) {
         const points = rows.filter(row=>row.tier===tier).sort((a,b)=>a[xKey]-b[xKey]);
@@ -38,14 +39,14 @@
           parts.push(`H ${sx(points[i][xKey])} V ${sy(points[i][yKey])}`);
         }
         svg.append(svgNode('path',{d:parts.join(' '),fill:'none',stroke:colors[index%colors.length],
-          'stroke-width':3,'stroke-linejoin':'round'}));
+          'stroke-width':3,'stroke-linejoin':'round','stroke-dasharray':lineStyles[index%lineStyles.length]}));
         for (const point of points) svg.append(svgNode('circle',{cx:sx(point[xKey]),cy:sy(point[yKey]),r:2.6,
           fill:colors[index%colors.length]}));
       }
       host.append(svg);
     }
     function legend(hostId, tiers) {
-      $(hostId).innerHTML = tiers.map((tier,i)=>`<span><i style="background:${colors[i%colors.length]}"></i>Tier ${tier.tier}: ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('');
+      $(hostId).innerHTML = tiers.map((tier,i)=>`<span><svg viewBox="0 0 38 8" aria-hidden="true"><line x1="1" y1="4" x2="37" y2="4" stroke="${colors[i%colors.length]}" stroke-width="3" stroke-dasharray="${lineStyles[i%lineStyles.length]}"/></svg>Tier ${tier.tier}: ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('');
     }
     function table(headers, rows) {
       return `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`+
@@ -115,6 +116,7 @@
       else if ($('decklist').value.trim() && !validSize) parts.push('A legal Cyberdeck has 50–255 cards.');
       box.innerHTML=`<strong>${parsed.deckCount} cyberdeck ${parsed.deckCount===1?'card':'cards'}</strong>`+
         `<small>${esc(parts.join(' · '))}</small>`;
+      $('analyze').disabled = !validSize || parsed.errors.length > 0;
     }
     function showError(message) {$('inputError').hidden=false;$('inputError').textContent=message;}
     $('analyze').addEventListener('click',async()=>{
@@ -127,20 +129,47 @@
         const result=await engine.analyze(currentParse,mainframe,
           {trials:Number($('trials').value),turns:Number($('turns').value),ram_target:$('ramTarget').value},status);
         render(result);
-      } catch(error) {$('analyze').disabled=false;$('status').hidden=true;showError(error.message);}
-      $('analyze').disabled=false;
+      } catch(error) {$('status').hidden=true;showError(error.message);}
+      updateDeckCount();
     });
     $('deckfile').addEventListener('change',async event=>{const file=event.target.files?.[0];
-      if(file){$('decklist').value=await file.text();updateDeckCount();}});
+      if(!file)return;
+      $('fileError').hidden=true;
+      try {
+        const text=await file.text();
+        $('decklist').value=text;
+        updateDeckCount();
+      } catch(error) {
+        $('fileError').hidden=false;
+        $('fileError').textContent=`Could not read ${file.name}. The previous decklist was preserved.`;
+      }
+    });
     $('decklist').addEventListener('input',updateDeckCount);
     $('example').addEventListener('click',()=>{$('mainframe').value=catalog.example_mainframe;
-      $('decklist').value=catalog.example_decklist;$('inputError').hidden=true;updateDeckCount();});
+      $('decklist').value=catalog.example_decklist;$('inputError').hidden=true;$('fileError').hidden=true;updateDeckCount();});
     $('download').addEventListener('click',()=>{if(!latest)return;
       const blob=new Blob([JSON.stringify(latest,null,2)+'\n'],{type:'application/json'});
       const url=URL.createObjectURL(blob), link=document.createElement('a');link.href=url;
       link.download=`${latest.mainframe.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${latest.deck_size}-synergy.json`;
       link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-    if (!catalog || !engine) showError('The local catalog or calculator script did not load. Keep index.html, catalog.js, engine.js, and app.js together.');
+    for (const button of document.querySelectorAll('.info-button')) {
+      const wrap=button.closest('.info-wrap');
+      button.addEventListener('click',event=>{
+        event.stopPropagation();
+        document.querySelectorAll('.info-wrap.open').forEach(item=>{item.classList.remove('open');item.querySelector('.info-button').setAttribute('aria-expanded','false');});
+        wrap.classList.add('open');button.setAttribute('aria-expanded','true');
+      });
+      button.addEventListener('focus',()=>{
+        document.querySelectorAll('.info-wrap.open').forEach(item=>{if(item!==wrap){item.classList.remove('open');item.querySelector('.info-button').setAttribute('aria-expanded','false');}});
+        wrap.classList.add('open');button.setAttribute('aria-expanded','true');
+      });
+      wrap.addEventListener('focusout',()=>setTimeout(()=>{
+        if(!wrap.contains(document.activeElement)){wrap.classList.remove('open');button.setAttribute('aria-expanded','false');}
+      },0));
+    }
+    document.addEventListener('click',()=>document.querySelectorAll('.info-wrap.open').forEach(item=>{item.classList.remove('open');item.querySelector('.info-button').setAttribute('aria-expanded','false');}));
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.info-wrap.open').forEach(item=>{item.classList.remove('open');item.querySelector('.info-button').setAttribute('aria-expanded','false');});});
+    if (!catalog || !engine) showError('The local catalog or calculator script did not load. Keep index.html, catalog.js, engine.js, app.js, and the assets folder together.');
     else {
       $('mainframe').innerHTML=catalog.cards.filter(card=>card.type==='MAINFRAME')
         .map(card=>`<option value="${esc(card.name)}">${esc(card.name)}</option>`).join('');

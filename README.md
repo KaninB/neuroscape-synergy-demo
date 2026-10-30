@@ -4,4 +4,4 @@ An unofficial, browser-only calculator for exploring when a deck reaches its Mai
 
 The exact draw panels use without-replacement combinatorics. The turn panels use a structural simulation with RAM, costs, faction gates, gear hosts and ports, persistent slots, and character force quits. Printed card effects, tokens, combat, and lethal endings are not modeled. Treat the turn curves as estimates, not full-game probabilities.
 
-The page runs without a server. Decklists and results stay in the browser unless the visitor downloads a JSON result. The four files needed to host it are `index.html`, `app.js`, `engine.js`, and `catalog.js`.
+The page runs without a server. Decklists and results stay in the browser unless the visitor downloads a JSON result. The static host contains `index.html`, `app.js`, `engine.js`, `catalog.js`, and the SVG marks under `assets/`.

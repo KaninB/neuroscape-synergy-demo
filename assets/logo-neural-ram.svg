@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 112" role="img" aria-labelledby="title desc">
+  <title id="title">Neural RAM logo candidate</title>
+  <desc id="desc">A RAM module outline containing a teal branching path and connected neural nodes.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 29h150v54h-52l-7 13H80l-7-13H21z" fill="#262B2F" stroke="#BCC4D0" stroke-width="5"/>
+    <path d="M43 57h37l18-17 20 20 30-22" stroke="#24C8A5" stroke-width="6"/>
+    <g fill="#24C8A5" stroke="#171A1D" stroke-width="4">
+      <circle cx="43" cy="57" r="8"/>
+      <circle cx="80" cy="57" r="8"/>
+      <circle cx="98" cy="40" r="8"/>
+      <circle cx="118" cy="60" r="8"/>
+      <circle cx="148" cy="38" r="8"/>
+    </g>
+    <g stroke="#24C8A5" stroke-width="5">
+      <path d="M34 83v17m18-17v17m88-17v17m18-17v17"/>
+    </g>
+  </g>
+</svg>
