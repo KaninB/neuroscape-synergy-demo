@@ -1,6 +1,9 @@
     const $ = id => document.getElementById(id);
     const colors = ['#24C8A5','#E25C8D','#F4B942','#8B7CF6','#56B4E9','#F0785A'];
     const lineStyles = ['', '8 5', '2 4', '', '8 5', '2 4'];
+    const TURN_LANDMARKS = [1,2,3,4,5,6,8,10,12,16,20,24,28,32,36,40];
+    const SEEN_LANDMARKS = [5,6,8,10,12,15,20];
+    const chartRedraws = [];
     const catalog = globalThis.NEUROSCAPE_CATALOG;
     const engine = globalThis.NEUROSCAPE_ENGINE;
     let latest = null, currentParse = null;
@@ -26,8 +29,10 @@
           svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
           svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${value*100}%`));
         }
-        const ticks = (xLabel === 'Own turn' ? (tall ? [1,3,5,8,12] : [1,3,5,8,10,12,16,20]) : [5,8,12,16,20])
-          .filter(x=>x>=xMin&&x<=xMax);
+        const stride = xLabel === 'Own turn' ? (xMax > 16 ? 4 : xMax > 8 ? 2 : 1) : 5;
+        const ticks = [];
+        for (let x = xMin; x <= xMax; x += stride) ticks.push(x);
+        if (ticks[ticks.length-1] !== xMax && xMax - ticks[ticks.length-1] < stride/2) ticks[ticks.length-1] = xMax;
         for (const value of ticks) {
           svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#7B8992'}));
           svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(value)));
@@ -86,7 +91,11 @@
         `<span><b>1st / 2nd</b> = going first / going second</span>`;
     }
     function table(headers, rows) {
-      const cell = value => value !== null && typeof value === 'object' && 'html' in value ? value.html : esc(value);
+      const cell = value => {
+        if (value !== null && typeof value === 'object' && 'html' in value)
+          return value.picked ? `<td class="picked">${value.html}</td>` : `<td>${value.html}</td>`;
+        return `<td>${esc(value)}</td>`;
+      };
       const header = h => h !== null && typeof h === 'object' && 'html' in h ? h.html : esc(h);
       return `<table><thead><tr>${headers.map(header).join('')}</tr></thead><tbody>`+
         rows.map(row=>{
@@ -130,40 +139,48 @@
       function renderMilestones() {
         const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
         const shown = Math.min(value, result.settings.turns);
-        const turns = TURN_LANDMARKS.filter(t => t <= result.settings.turns);
-        const mark = row => row ? {html:`<b>${pct(row.probability)}</b><span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span>`} : {html:'<span class="dim">—</span>'};
+        const landmarkTurns = TURN_LANDMARKS.filter(t => t <= result.settings.turns && t !== shown);
+        const turns = [...landmarkTurns, shown].sort((a,b) => a-b);
+        const mark = (row, picked) => row ?
+          {html:`<b>${pct(row.probability)}</b><span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span>`, picked} :
+          {html:'<span class="dim">—</span>', picked};
+        const cellsOf = (tier, position) => [
+          {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">${position === 'first' ? '1st' : '2nd'}</span>`},
+          ...turns.map(t => mark(curves.find(r => r.tier === tier.tier && r.position === position && r.turn === t), t === shown)),
+          {html:`turn ${medianFirstHit(tier.tier, position)}`}
+        ];
         $('milestoneTable').innerHTML = table(
           [{html:'<span class="tierkey">Tier · position</span>'},
-            ...turns.map(t => ({html:`t=${t}`})),
+            ...turns.map(t => ({html:t === shown ? `<span class="picked">t=${t} ▾</span>` : `t=${t}`})),
             {html:'<span class="tierkey">Typical</span>'}],
           tiers.flatMap(tier => ['first','second'].map(position => ({
             rowClass: position === 'first' ? 'pos-first' : 'pos-second',
-            cells: [
-              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">${position === 'first' ? '1st' : '2nd'}</span>`},
-              ...turns.map(t => mark(curves.find(r => r.tier === tier.tier && r.position === position && r.turn === t))),
-              {html:`turn ${medianFirstHit(tier.tier, position)}`}
-            ]}))));
+            cells: cellsOf(tier, position)
+          }))));
       }
       $('milestoneTurn').addEventListener('input', renderMilestones);
       renderMilestones();
       function renderDraw() {
         const value = Math.max(5, Math.min(20, Math.round(Number($('cardsSeen').value) || 12)));
-        const seen = SEEN_LANDMARKS;
-        const mark = (v, tip) => ({html:`<span title="${tip}"><b>${pct(v)}</b></span>`});
+        const seen = [...SEEN_LANDMARKS.filter(h => h !== value), value].sort((a,b) => a-b);
+        const mark = (v, tip, picked) => ({html:`<span title="${tip}"><b>${pct(v)}</b></span>`, picked});
+        const cell = (tier, key, h) => h === value ?
+          mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h)[key], `${key === 'faction_only_probability' ? 'Faction icons present' : 'Faction icons + board count'} (your pick)`, true) :
+          mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h)[key], key === 'faction_only_probability' ? 'Faction icons present' : 'Faction icons + board count', false);
         $('drawTable').innerHTML = table(
           [{html:'<span class="tierkey">Tier · condition</span>'},
-            ...seen.map(h => ({html:`${h} seen`})),
-            {html:'<span class="tierkey">After ' + value + '</span>'}],
+            ...seen.map(h => ({html:h === value ? `<span class="picked">${h} seen ▾</span>` : `${h} seen`})),
+            {html:'<span class="tierkey">Condition</span>'}],
           tiers.flatMap(tier => [
             {cells: [
               {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">icons</span>`},
-              ...seen.map(h => mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h).faction_only_probability, 'Faction icons present')),
-              mark(draw.find(r => r.tier === tier.tier && r.cards_seen === value).faction_only_probability, 'Faction icons present (your pick)')
+              ...seen.map(h => cell(tier, 'faction_only_probability', h)),
+              {html:'faction icons present'}
             ], rowClass: 'pos-first'},
             {cells: [
               {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">full</span>`},
-              ...seen.map(h => mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h).joint_threshold_probability, 'Faction icons + board count')),
-              mark(draw.find(r => r.tier === tier.tier && r.cards_seen === value).joint_threshold_probability, 'Faction icons + board count (your pick)')
+              ...seen.map(h => cell(tier, 'joint_threshold_probability', h)),
+              {html:'icons + board count'}
             ], rowClass: 'pos-second'}
           ]));
       }

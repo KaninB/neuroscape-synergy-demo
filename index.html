@@ -87,7 +87,7 @@
     .status { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:18px; margin:10px 0; }
     .progress { height:11px; border-radius:99px; background:#1b2023; overflow:hidden; margin:12px 0 5px; }
     .progress > div { height:100%; width:0%; background:var(--action); transition:width .25s; }
-    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .grid-2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr)); gap:12px; }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin:15px 0; }
     .stat { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:12px; }
     .stat b { display:block; font:700 20px/1.2 "Courier New",ui-monospace,monospace; }
@@ -101,6 +101,8 @@
     .table-scroll .ci { display:block; color:var(--muted); font-size:9px; margin-top:2px; }
     .table-scroll .dim { color:var(--muted); }
     .table-scroll .tierkey, .table-scroll .swatch { white-space:nowrap; }
+    .table-scroll td.picked, .table-scroll th .picked { background:#24c8a51c; box-shadow:inset 0 0 0 1px #24c8a566; }
+    .table-scroll .picked { color:var(--action); }
     .swatch { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:0; }
     .table-scroll tr.pos-second td { border-bottom:1px solid var(--line); }
     .table-scroll tr.pos-first td { border-bottom:1px dotted #39424a; }
@@ -178,13 +180,14 @@
       <div id="results" hidden>
         <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><button type="button" class="secondary" id="download">Download JSON</button></div>
         <div id="stats" class="stat-grid"></div>
-        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn columns come from n = 5,000 simulated structural games per position (Wilson 95% intervals shown under each percent). Cards-seen columns are exact without-replacement draw math. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings — a full notes section with formulas sits at the bottom of this page.</div>
+        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn columns come from n = 5,000 simulated structural games per position — the percent is the share of games where the tier first came online by that turn, with its Wilson 95% interval underneath. Cards-seen columns are exact without-replacement draw math: qualifying h-card combinations over C(deck size, h). The simulator observes the hand but never the future deck order; automatic RAM targets are chosen on separate pilot shuffles. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings; dual-faction cards supply both icons but only one board object.<details><summary>Formulas</summary><div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div></details></div>
+        <div id="warnings" class="note"></div>
         <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Each curve is n = 5,000 simulated games per position; Wilson 95% intervals appear below.</p>
           <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
           <div id="turnLegend" class="legend"></div>
           <div class="turn-picker"><label for="milestoneTurn">Typical-turn baseline</label>
             <input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="8" aria-describedby="milestoneHelp">
-            <span id="milestoneHelp" class="hint">Adds a highlighted “after N” column to the table below.</span></div>
+            <span id="milestoneHelp" class="hint">Adds a highlighted custom-turn column to the table below.</span></div>
           <div id="milestoneTable" class="table-scroll"></div></div>
         <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
           <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
@@ -194,12 +197,9 @@
             <span id="cardsSeenHelp" class="hint">Adds a highlighted “after N seen” column; “icons” rows need only the faction icons, “full” rows also need the printed board count.</span></div>
           <div id="drawTable" class="table-scroll"></div></div>
         <div class="section"><h2>What is in this deck?</h2><div id="sourceSummary"></div></div>
-        <div class="section"><h2>Calculation notes</h2><p>The exact calculation sums all without-replacement card combinations whose printed faction-vector and non-RAM persistent count meet a tier. Dual-faction cards can supply both icons but only one board object.</p>
-          <div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div>
-          <p class="hint">Automatic RAM targets are selected on separate pilot shuffles. Final evaluation uses independent shuffles, and the simulator observes the hand but never the future deck order.</p><div id="warnings" class="note"></div></div>
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-6"></script><script src="engine.js?v=20261103-6"></script><script src="app.js?v=20261103-6"></script>
+  <script src="catalog.js?v=20261103-7"></script><script src="engine.js?v=20261103-7"></script><script src="app.js?v=20261103-7"></script>
 </body>
 </html>
