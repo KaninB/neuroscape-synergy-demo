@@ -11,7 +11,7 @@ and a one-line note on how it was verified.
 - [ ] **Form layout review** — single-column settings (label / control / explanation stacked) to resolve the right-alignment discomfort; rewrite RAM strategy copy per SCOPE §7 voice rules. *(owner request)*
 - [ ] **Performance pass** — measure first, then: audit simulator hot-loop allocations, `requestAnimationFrame`-batched progress, defer offscreen chart builds, re-time `scrollIntoView` behavior. Worker only if measurement justifies it.
 - [ ] **Effect-aware simulation layer (deferred, later goal)** *(owner 2026-11-03)* — model cards that draw/see extra cards, cards that install RAM, and tutor effects. Extends the structural simulator toward true deck behavior; largest engine change on the books. Design before code: effect schema in catalog, policy hooks in `simulate()`, and a validation story (catalog validator extended to effect fields). ❓ needs a design pass when prioritized.
-- [ ] **Shareable URL hash** — mainframe + decklist + settings in `location.hash`, restore on load. ❓ pending distribution answer (SCOPE §8).
+- [ ] **Watch relay health** — azuniverse link imports fall back to public CORS relays (allorigins / cors.lol / cors.sh). The azuniverse API itself sends no CORS header, so if the live site fails to import, check relay availability first; a tiny Cloudflare Worker relay is the sturdy long-term fix.
 
 ## Backlog (unprioritized)
 
@@ -26,6 +26,7 @@ and a one-line note on how it was verified.
 
 ## Done
 
+- 2026-11-03 — **azuniverse.net link import** — root cause of "link not working": no CORS header + SPA HTML (deck data only in `api/decks/{id}` JSON). Built `engine.decklistFromAzuniverse` (URL regex + JSON→decklist; verified against the owner's real deck: 50 cards, BERSERKER mainframe, 0 parse errors) and a fetch chain: direct API → 3 public CORS relays. Local relays test failed (network blocks them) so browser behavior needs a live-site check.
 - 2026-11-03 — **Link import added** *(owner request)* — one import block: file picker + URL field with Import button (Enter works too). Fetches in-browser, validates http(s), guards against HTML/image payloads, fills the decklist field, shows a plain-language CORS fallback message. Engine re-verified in Node; app.js syntax-checked; page render-verified.
 - 2026-11-03 — **Spectrum bar removed** *(owner request)* — six-color gradient strip deleted from header; docs/SCOPE design-token notes updated to match. Header/empty-state mark resized square to suit the new favicon-shaped mark.
 - 2026-11-03 — **Favicon I wired in** — owner picked "solid contact strip" variant; `assets/favicon.svg` + generated `favicon-32.png` / `apple-touch-icon.png` (headless Chrome); `<link rel="icon">` tags added; header and empty-state now use the new mark; `logo-circuit-ram.svg` no longer referenced. Verified: automated checks + full-page screenshot.

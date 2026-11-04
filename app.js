@@ -146,31 +146,46 @@
     });
     async function importDeckLink(rawUrl) {
       $('fileError').hidden=true;
+      const trimmed=rawUrl.trim();
       let url;
-      try { url=new URL(rawUrl.trim()); } catch { url=null; }
+      try { url=new URL(trimmed); } catch { url=null; }
       if (!url || !/^https?:$/.test(url.protocol)) {
         $('fileError').hidden=false;
         $('fileError').textContent='Enter a full https:// link to a decklist.';
         return;
       }
+      const deckMatch=engine.AZUNIVERSE_DECK_URL.exec(trimmed);
+      const apiUrl=deckMatch ? `https://azuniverse.net/api/decks/${deckMatch[2]}` : null;
+      const targets=apiUrl ? [
+        apiUrl,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+        `https://api.cors.lol/?url=${encodeURIComponent(apiUrl)}`,
+        `https://proxy.cors.sh/${apiUrl}`
+      ] : [trimmed];
       const button=$('importLink');
       button.disabled=true;
       const original=button.textContent;
+      let lastError=null;
       button.textContent='Importing…';
       try {
-        const response=await fetch(url,{redirect:'follow'});
-        if (!response.ok) throw new Error(`The site answered ${response.status} ${response.statusText || ''}`.trim());
-        const type=response.headers.get('content-type') || '';
-        if (/^image\//i.test(type)) throw new Error('That link serves an image, not a decklist.');
-        const text=await response.text();
-        if (!text.trim()) throw new Error('That link returned an empty page.');
-        $('decklist').value=text;
-        $('decklink').value='';
-        updateDeckCount();
+        for (const target of targets) {
+          try {
+            const response=await fetch(target,{redirect:'follow'});
+            if (!response.ok) throw new Error(`the site answered ${response.status}`);
+            const text=await response.text();
+            const deckText=deckMatch ? engine.decklistFromAzuniverse(text) : text;
+            if (!deckText.trim()) throw new Error('that link returned an empty page');
+            $('decklist').value=deckText;
+            $('decklink').value='';
+            updateDeckCount();
+            return;
+          } catch (error) { lastError=error; }
+        }
+        throw lastError || new Error('the import failed');
       } catch (error) {
         $('fileError').hidden=false;
-        $('fileError').textContent=error.name==='TypeError' ?
-          'This site does not allow browser imports (CORS). Download the file and use Choose file, or host the list on a link-friendly site such as raw.githubusercontent.com.' :
+        $('fileError').textContent=error.name==='TypeError' || /failed to fetch/i.test(error.message||'') ?
+          'Could not import that link. The site may block browser imports (CORS) and the import helpers were unreachable — download the deck file and use Choose file, or paste the list directly.' :
           `Could not import that link. ${error.message}`;
       } finally {
         button.disabled=false;
