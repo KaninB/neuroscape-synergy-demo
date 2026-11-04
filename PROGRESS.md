@@ -26,6 +26,7 @@ and a one-line note on how it was verified.
 
 ## Done
 
+- 2026-11-03 — **Parallel import race** *(owner reported slow imports)* — link sources now race in parallel via `Promise.any` (10s AbortController timeout each) instead of sequential tries; winner typically the direct azuniverse API at ~250ms in Node simulation. AllOrigins verified live-working (200 + CORS + valid JSON); cors.lol rate-limited, cors.sh flaky. Owner will ask the azuniverse developer for a one-line CORS header — recorded as the preferred fix in SCOPE §5.
 - 2026-11-03 — **azuniverse.net link import** — root cause of "link not working": no CORS header + SPA HTML (deck data only in `api/decks/{id}` JSON). Built `engine.decklistFromAzuniverse` (URL regex + JSON→decklist; verified against the owner's real deck: 50 cards, BERSERKER mainframe, 0 parse errors) and a fetch chain: direct API → 3 public CORS relays. Local relays test failed (network blocks them) so browser behavior needs a live-site check.
 - 2026-11-03 — **Link import added** *(owner request)* — one import block: file picker + URL field with Import button (Enter works too). Fetches in-browser, validates http(s), guards against HTML/image payloads, fills the decklist field, shows a plain-language CORS fallback message. Engine re-verified in Node; app.js syntax-checked; page render-verified.
 - 2026-11-03 — **Spectrum bar removed** *(owner request)* — six-color gradient strip deleted from header; docs/SCOPE design-token notes updated to match. Header/empty-state mark resized square to suit the new favicon-shaped mark.

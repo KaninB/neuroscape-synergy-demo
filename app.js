@@ -144,6 +144,11 @@
         $('fileError').textContent=`Could not read ${file.name}. The previous decklist was preserved.`;
       }
     });
+    function fetchWithTimeout(target, ms) {
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(), ms);
+      return fetch(target,{redirect:'follow',signal:controller.signal}).finally(()=>clearTimeout(timer));
+    }
     async function importDeckLink(rawUrl) {
       $('fileError').hidden=true;
       const trimmed=rawUrl.trim();
@@ -156,6 +161,8 @@
       }
       const deckMatch=engine.AZUNIVERSE_DECK_URL.exec(trimmed);
       const apiUrl=deckMatch ? `https://azuniverse.net/api/decks/${deckMatch[2]}` : null;
+      // azuniverse.net sends no CORS header, so browser imports race the direct
+      // API against public relays in parallel; the fastest healthy source wins.
       const targets=apiUrl ? [
         apiUrl,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
@@ -165,28 +172,26 @@
       const button=$('importLink');
       button.disabled=true;
       const original=button.textContent;
-      let lastError=null;
       button.textContent='Importing…';
       try {
-        for (const target of targets) {
-          try {
-            const response=await fetch(target,{redirect:'follow'});
-            if (!response.ok) throw new Error(`the site answered ${response.status}`);
-            const text=await response.text();
-            const deckText=deckMatch ? engine.decklistFromAzuniverse(text) : text;
-            if (!deckText.trim()) throw new Error('that link returned an empty page');
-            $('decklist').value=deckText;
-            $('decklink').value='';
-            updateDeckCount();
-            return;
-          } catch (error) { lastError=error; }
-        }
-        throw lastError || new Error('the import failed');
+        const deckText=await Promise.any(targets.map(async target=>{
+          const response=await fetchWithTimeout(target,10000);
+          if (!response.ok) throw new Error(`the source answered ${response.status}`);
+          const text=await response.text();
+          const converted=deckMatch ? engine.decklistFromAzuniverse(text) : text;
+          if (!converted.trim()) throw new Error('that link returned an empty page');
+          return converted;
+        }));
+        $('decklist').value=deckText;
+        $('decklink').value='';
+        updateDeckCount();
       } catch (error) {
         $('fileError').hidden=false;
-        $('fileError').textContent=error.name==='TypeError' || /failed to fetch/i.test(error.message||'') ?
-          'Could not import that link. The site may block browser imports (CORS) and the import helpers were unreachable — download the deck file and use Choose file, or paste the list directly.' :
-          `Could not import that link. ${error.message}`;
+        const first=error && error.errors && error.errors[0];
+        const detail=(first || error || {}).message || '';
+        $('fileError').textContent=/not a readable deck|did not contain|no Cyberdeck/i.test(detail) ?
+          `Could not import that link. ${detail}` :
+          'Could not import that link. The site blocks direct browser imports (CORS) and the import helpers did not respond in time — try again, or use Choose file / paste the list.';
       } finally {
         button.disabled=false;
         button.textContent=original;
