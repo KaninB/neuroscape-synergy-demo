@@ -136,6 +136,19 @@
         }
         return firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : '—';
       }
+      let positionView = 'both';
+      const applyPositionView = () => {
+        $('firstBox').hidden = positionView === 'second';
+        $('secondBox').hidden = positionView === 'first';
+        for (const b of document.querySelectorAll('#positionToggle button')) {
+          const on = b.dataset.pos === positionView;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        }
+        requestAnimationFrame(() => { for (const redraw of chartRedraws) redraw(); });
+      };
+      for (const b of document.querySelectorAll('#positionToggle button'))
+        b.addEventListener('click', () => { positionView = b.dataset.pos; applyPositionView(); });
       function renderMilestones() {
         const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
         const shown = Math.min(value, result.settings.turns);

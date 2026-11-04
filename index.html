@@ -88,6 +88,11 @@
     .progress { height:11px; border-radius:99px; background:#1b2023; overflow:hidden; margin:12px 0 5px; }
     .progress > div { height:100%; width:0%; background:var(--action); transition:width .25s; }
     .grid-2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr)); gap:12px; }
+    .segmented { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; margin:2px 0 12px; vertical-align:middle; }
+    .segmented button { border:0; border-radius:0; background:var(--raised); color:var(--muted); padding:8px 13px; font-size:12px; font-weight:700; }
+    .segmented button + button { border-left:1px solid var(--line); }
+    .segmented button.on { background:var(--action); color:var(--action-ink); }
+    .segmented button:hover:not(.on) { background:#414a51; color:var(--text); }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin:15px 0; }
     .stat { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:12px; }
     .stat b { display:block; font:700 20px/1.2 "Courier New",ui-monospace,monospace; }
@@ -183,7 +188,12 @@
         <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn columns come from n = 5,000 simulated structural games per position — the percent is the share of games where the tier first came online by that turn, with its Wilson 95% interval underneath. Cards-seen columns are exact without-replacement draw math: qualifying h-card combinations over C(deck size, h). The simulator observes the hand but never the future deck order; automatic RAM targets are chosen on separate pilot shuffles. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings; dual-faction cards supply both icons but only one board object.<details><summary>Formulas</summary><div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div></details></div>
         <div id="warnings" class="note"></div>
         <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Each curve is n = 5,000 simulated games per position; Wilson 95% intervals appear below.</p>
-          <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
+          <div class="segmented" id="positionToggle" role="group" aria-label="Which position's charts to show">
+            <button type="button" data-pos="both" class="on" aria-pressed="true">Both</button>
+            <button type="button" data-pos="first" aria-pressed="false">Going 1st</button>
+            <button type="button" data-pos="second" aria-pressed="false">Going 2nd</button>
+          </div>
+          <div class="grid-2" id="turnCharts"><div class="chart-box" id="firstBox"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box" id="secondBox"><h3>Going second</h3><div id="secondChart"></div></div></div>
           <div id="turnLegend" class="legend"></div>
           <div class="turn-picker"><label for="milestoneTurn">Typical-turn baseline</label>
             <input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="8" aria-describedby="milestoneHelp">
@@ -200,6 +210,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-7"></script><script src="engine.js?v=20261103-7"></script><script src="app.js?v=20261103-7"></script>
+  <script src="catalog.js?v=20261103-8"></script><script src="engine.js?v=20261103-8"></script><script src="app.js?v=20261103-8"></script>
 </body>
 </html>
