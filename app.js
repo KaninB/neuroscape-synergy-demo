@@ -99,8 +99,9 @@
       $('status').hidden=false; $('phase').textContent=p.phase || 'Calculating';
       const fraction=p.total ? Math.min(1,p.completed/p.total) : 0;
       $('progressFill').style.width=`${Math.round(100*fraction)}%`;
+      const where=p.position==='first' ? ' · going first' : p.position==='second' ? ' · going second' : '';
       $('progressText').textContent=p.total>1 ?
-        `${p.completed || 0} / ${p.total} simulations · ${Math.round(100*fraction)}%` :
+        `${p.completed || 0} / ${p.total.toLocaleString()} ${p.stage==='pilot' ? 'pilot games' : 'games'}${where} · ${Math.round(100*fraction)}%` :
         'Exact combinatorial calculation';
     }
     function updateDeckCount() {

@@ -460,11 +460,12 @@
     if (requestedTarget !== null && (!Number.isInteger(requestedTarget) || requestedTarget < 1 || requestedTarget > 25))
       throw new Error('RAM target must be 1–25');
     const pilotTrials = requestedTarget === null ? 12 : 0;
-    const total = 2 * trials + RAM_TARGETS.length * 2 * pilotTrials;
-    let completed = 0, ramTarget = requestedTarget;
+    const pilotTotal = RAM_TARGETS.length * 2 * pilotTrials;
+    let ramTarget = requestedTarget;
     const pilotScores = [];
     if (ramTarget === null) {
       const horizon = Math.min(12, turns);
+      let pilotCompleted = 0;
       for (const target of RAM_TARGETS) {
         let score = 0;
         for (const first of [true, false]) for (let trial = 0; trial < pilotTrials; trial++) {
@@ -473,10 +474,10 @@
             const hit = state.reached[tier.tier];
             if (hit !== undefined && hit <= horizon) score += horizon - hit + 1;
           }
-          completed++;
+          pilotCompleted++;
         }
         pilotScores.push({ ram_target: target, score: score / (2 * pilotTrials * mainframe.tiers.length * horizon) });
-        progress({ phase: 'Selecting RAM policy', completed, total, ram_target: target });
+        progress({ phase: 'Testing RAM budgets', stage: 'pilot', completed: pilotCompleted, total: pilotTotal, ram_target: target });
         await yieldFrame();
       }
       pilotScores.sort((a, b) => b.score - a.score || a.ram_target - b.ram_target);
@@ -496,9 +497,8 @@
             hits.set(k, (hits.get(k) || 0) + 1);
           }
         }
-        completed++;
         if ((trial + 1) % stride === 0 || trial + 1 === trials) {
-          progress({ phase: 'Simulating turn curves', completed, total, position });
+          progress({ phase: 'Simulating turn curves', stage: 'main', completed: trial + 1, total: trials, position });
           await yieldFrame();
         }
       }
