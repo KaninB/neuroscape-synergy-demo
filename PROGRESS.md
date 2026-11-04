@@ -6,6 +6,7 @@ and a one-line note on how it was verified.
 
 ## Now
 
+- [ ] **Results display redesign** *(owner: packed cells "a bit gross")* — mockups at `design/results-mockups.html` (open in Chrome): turn tables A1 (one row per tier·position) / A2 (tier cards) / A3 (stripped matrix); cards-seen B1 (rows per tier·condition) / B2 (labeled bars); chart hovers C1 (crosshair + all-series tooltip) / C2 (nearest-dot tooltip). Owner picks per section; then implement chosen variants in app.js + index.html.
 - [ ] **Searchable Mainframe picker** — replace the `<select>` with a text-filtered combobox; keyboard navigable, aria-compliant. *(owner request)*
 - [ ] **RAM control rename** — "Installed RAM strategy" → "Simulated RAM budget" with the one-sentence explainer (SCOPE §7). *(pending owner approval of wording)*
 - [ ] **Awaiting live test: link import v3** — owner to re-test the azuniverse link with the 4-source race; send the "Tried: …" diagnostics if it fails. CORS-header ask to the azuniverse developer still pending.
