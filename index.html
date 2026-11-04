@@ -184,10 +184,10 @@
       <div id="status" class="status" aria-live="polite" hidden><strong id="phase">Waiting</strong><div class="progress"><div id="progressFill"></div></div><span id="progressText" class="hint"></span></div>
       <div id="results" hidden>
         <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><button type="button" class="secondary" id="download">Download JSON</button></div>
-        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn columns come from n = 5,000 simulated structural games per position — the percent is the share of games where the tier first came online by that turn, with its Wilson 95% interval underneath. Cards-seen columns are exact without-replacement draw math: qualifying h-card combinations over C(deck size, h). The simulator observes the hand but never the future deck order; automatic RAM targets are chosen on separate pilot shuffles. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings; dual-faction cards supply both icons but only one board object.<details><summary>Formulas</summary><div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div></details></div>
+        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> <b>Played out</b> columns come from n = 5,000 simulated structural games per position — the percent is the share of games where the tier first came online by that turn, with its Wilson 95% interval underneath. <b>On paper</b> columns are exact without-replacement draw math: qualifying h-card combinations over C(deck size, h). The simulator observes the hand but never the future deck order; automatic RAM targets are chosen on separate pilot shuffles. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings; dual-faction cards supply both icons but only one board object.<details><summary>Formulas</summary><div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div></details></div>
         <div id="stats" class="stat-grid"></div>
         <div id="warnings" class="note"></div>
-        <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Each curve is n = 5,000 simulated games per position; Wilson 95% intervals appear below.</p>
+        <div class="section"><h2>Played out — when tiers come online</h2><p class="hint">Estimated from n = 5,000 simulated games per position (Wilson 95% intervals shown). A tier stays counted after its first hit, even if a later force quit removes its sources.</p>
           <div class="segmented" id="positionToggle" role="group" aria-label="Which position's charts to show">
             <button type="button" data-pos="both" class="on" aria-pressed="true">Both</button>
             <button type="button" data-pos="first" aria-pressed="false">Going 1st</button>
@@ -199,7 +199,7 @@
             <input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="8" aria-describedby="milestoneHelp">
             <span id="milestoneHelp" class="hint">Adds a highlighted custom-turn column to the table below.</span></div>
           <div id="milestoneTable" class="table-scroll"></div></div>
-        <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. Draw order does not depend on who goes first, so the position toggle does not change this section.</p>
+        <div class="section"><h2>On paper — is the tier in the deck?</h2><p class="hint">Exact probabilities after <em>h random cards seen</em> — deck composition only, no play pattern. Roughly h ≈ 5 + 2 × (turn − 1), minus RAM installs. Draw order does not depend on who goes first, so the position toggle does not change this section.</p>
           <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
           <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p>
           <div class="turn-picker"><label for="cardsSeen">Custom cards-seen column</label>
@@ -210,6 +210,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-9"></script><script src="engine.js?v=20261103-9"></script><script src="app.js?v=20261103-9"></script>
+  <script src="catalog.js?v=20261103-10"></script><script src="engine.js?v=20261103-10"></script><script src="app.js?v=20261103-10"></script>
 </body>
 </html>
