@@ -370,14 +370,42 @@
 
   const AZUNIVERSE_DECK_URL = /^https?:\/\/([a-z0-9-]+\.)?azuniverse\.net\/decks\/([A-Za-z0-9]+)\/?([?#].*)?$/;
 
+  // Find the first balanced JSON object in a text blob (used when a relay
+  // wraps the payload in markdown or HTML).
+  function jsonFromLooseText(text) {
+    const start = text.indexOf('{');
+    if (start < 0) return null;
+    let depth = 0, inString = false, escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (!depth) {
+          try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
+        }
+      }
+    }
+    return null;
+  }
+
   // Convert an azuniverse.net deck API payload into decklist text.
+  // Tolerates relays that wrap the JSON in markdown or HTML.
   // Throws with a friendly message when the payload is not a usable deck.
   function decklistFromAzuniverse(payload) {
-    let data;
-    try { data = typeof payload === 'string' ? JSON.parse(payload) : payload; }
-    catch { throw new Error('The site returned a page that is not a readable deck.'); }
+    let data = null;
+    if (typeof payload === 'string') {
+      try { data = JSON.parse(payload); } catch { data = jsonFromLooseText(payload); }
+    } else data = payload;
     if (!data || typeof data !== 'object' || !Array.isArray(data.items))
-      throw new Error('The response did not contain a deck list.');
+      throw new Error('the response did not contain a deck list');
     const lines = [];
     if (data.mainframeCard && data.mainframeCard.name) lines.push(`1 ${data.mainframeCard.name}`);
     lines.push('#CYBERDECK');
@@ -393,7 +421,7 @@
       lines.push('#SIDEBOARD');
       for (const item of sideboard) lines.push(`${item.quantity} ${item.card.name}`);
     }
-    if (!count) throw new Error('The deck contains no Cyberdeck cards.');
+    if (!count) throw new Error('the deck contains no Cyberdeck cards');
     return lines.join('\n');
   }
 
@@ -502,7 +530,7 @@
   }
 
   const api = { parseDecklist, exactDrawCurve, drawReference, simulate, analyze,
-    sourceSummary, catalogIndex, choose, wilson, hash32, decklistFromAzuniverse, AZUNIVERSE_DECK_URL };
+    sourceSummary, catalogIndex, choose, wilson, hash32, decklistFromAzuniverse, jsonFromLooseText, AZUNIVERSE_DECK_URL };
   root.NEUROSCAPE_ENGINE = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);
