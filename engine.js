@@ -447,9 +447,10 @@
     if (parsed.errors.length) throw new Error(parsed.errors.join('\n'));
     if (parsed.deckCount < 50 || parsed.deckCount > 255) throw new Error(`Cyberdeck has ${parsed.deckCount} cards; legal size is 50–255`);
     if (!mainframe || mainframe.type !== 'MAINFRAME') throw new Error('Choose a Mainframe');
-    const deck = parsed.deck, turns = Number(settings.turns || 12), trials = Number(settings.trials || 250);
-    if (![12, 20].includes(turns) || !Number.isInteger(trials) || trials < 50 || trials > 5000)
-      throw new Error('Select 12 or 20 turns and 50–5,000 trials per position');
+    const deck = parsed.deck, turns = Number(settings.turns || 12), trials = Number(settings.trials || 5000);
+    if (!Number.isInteger(turns) || turns < 1 || turns > 40) throw new Error('Max turns must be a whole number from 1 to 40');
+    if (!Number.isInteger(trials) || trials < 50 || trials > 5000)
+      throw new Error('Select 50–5,000 trials per position');
     const signature = `${mainframe.id}|${parsed.entries.map(row => `${row.card_id}:${row.copies}`).join('|')}`;
     const seed = hash32(signature);
     progress({ phase: 'Calculating exact draw odds', completed: 0, total: 1 });

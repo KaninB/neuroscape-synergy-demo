@@ -42,11 +42,6 @@
     h3 { margin:0 0 8px; font-size:17px; }
     p { margin:8px 0 14px; }
     .hint,.muted { color:var(--muted); font-size:12px; }
-    .workflow { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid var(--line); margin:0 0 17px; }
-    .workflow span { padding:10px 8px; background:var(--raised); color:var(--muted); text-align:center;
-      font:700 10px/1.25 Arial,Helvetica,sans-serif; text-transform:uppercase; letter-spacing:.04em; }
-    .workflow span + span { border-left:1px solid var(--line); }
-    .workflow b { color:var(--action); margin-right:3px; }
     .upload-block { border:1px solid var(--line); background:#202428; border-radius:4px; padding:14px; margin-bottom:13px; }
     .upload-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
     .upload-head strong { font:700 13px/1.3 Arial,Helvetica,sans-serif; }
@@ -117,7 +112,7 @@
     @media (max-width:650px) { .header-inner { display:block; padding:24px 18px 26px; } .site-mark { width:56px; height:56px; margin-bottom:10px; }
       .header-badge { margin-top:18px; } main { padding:0 12px; margin-top:14px; } .content-panel,.input-panel { padding:16px; }
       .grid-2 { grid-template-columns:1fr; } .stat-grid { grid-template-columns:repeat(2,1fr); } .row { display:block; }
-      .section-head { display:block; } .section-head button { margin:0 0 12px; } .workflow span { font-size:9px; padding:9px 4px; } }
+      .section-head { display:block; } .section-head button { margin:0 0 12px; } }
   </style>
 </head>
 <body>
@@ -132,7 +127,6 @@
   <main>
     <section class="panel input-panel" aria-label="Decklist input">
       <h2>Your deck</h2>
-      <div class="workflow" aria-label="Calculator workflow"><span><b>1</b> Import</span><span><b>2</b> Review</span><span><b>3</b> Calculate</span></div>
       <div class="upload-block">
         <div class="upload-head"><strong>Import a decklist</strong><span class="hint">.txt / .csv / .md or a link</span></div>
         <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload deck export" aria-describedby="uploadHelp">
@@ -149,12 +143,9 @@
       <div class="label-row"><label for="decklist">Decklist</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Decklist" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Only Cyberdeck cards enter the calculation. Mainframe, sideboard, and RAM sections are excluded from the Cyberdeck count.</span></span></div>
       <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
       <div id="deckCount" class="countbox" aria-live="polite"><strong>0 cyberdeck cards</strong><small>Paste a list or upload an export to count its cards.</small></div>
-      <div class="row">
-        <div><div class="label-row"><label for="trials">Trials per position</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About trials per position" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Independent simulated games are run for going first and second. More trials reduce Monte Carlo noise and take longer.</span></span></div>
-          <select id="trials"><option value="250" selected>250 / quick</option><option value="500">500 / standard</option><option value="1000">1,000 / detailed</option><option value="5000">5,000 / long run</option></select></div>
-        <div><div class="label-row"><label for="turns">Own turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About own turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">The last own turn displayed on estimated turn curves. Turn 12 is the article horizon; turn 20 reveals slower decks.</span></span></div>
-          <select id="turns"><option value="12" selected>1-12</option><option value="20">1-20</option></select></div>
-      </div>
+      <div class="label-row"><label for="turns">Max turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About max turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">The last own turn displayed on the estimated turn curves. Choose 1–40; 12 matches the article horizon, 20–40 reveals slower decks.</span></span></div>
+      <input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="12" aria-describedby="turnsHelp">
+      <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached by your own turn, up to this maximum.</p>
       <div class="label-row"><label for="ramTarget">Installed RAM strategy</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Installed RAM strategy" aria-expanded="false">i</button><span class="info-popover" role="tooltip">This is where the simulated player stops installing RAM and starts prioritizing card draws. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
       <select id="ramTarget"><option value="auto" selected>Choose automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
       <p class="setting-explanation">Automatic tests several stopping points, then uses the one that reached this Mainframe's tiers earliest in pilot games.</p>
@@ -168,7 +159,7 @@
       <div id="results" hidden>
         <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><button type="button" class="secondary" id="download">Download JSON</button></div>
         <div id="stats" class="stat-grid"></div>
-        <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Wilson 95% intervals appear below.</p>
+        <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Each curve is n = 5,000 simulated games per position; Wilson 95% intervals appear below.</p>
           <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
           <div id="turnLegend" class="legend"></div><div id="milestoneTable" class="table-scroll"></div></div>
         <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>

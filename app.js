@@ -56,7 +56,7 @@
       latest = result; $('placeholder').hidden = true; $('status').hidden = true; $('results').hidden = false;
       const mf = result.mainframe, tiers = mf.tiers, curves = result.curves, draw = result.draw_only;
       $('resultTitle').textContent = `${mf.name} · ${result.deck_size} cards`;
-      $('resultSubtitle').textContent = `${result.settings.trials_per_position.toLocaleString()} trials per position · ${result.settings.turns} own turns · RAM target ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
+      $('resultSubtitle').textContent = `n = ${result.settings.trials_per_position.toLocaleString()} simulated games per position · max turn ${result.settings.turns} · RAM budget ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
       const high = tiers.at(-1), source = result.source_summary_by_tier[String(high.tier)];
       $('stats').innerHTML = `<div class="stat"><b>${result.deck_size}</b><small>Cyberdeck cards</small></div>`+
         `<div class="stat"><b>${source.source_cards}</b><small>High-tier faction sources</small></div>`+
@@ -71,6 +71,7 @@
         'The exact panels coincide for this deck: seeing the required persistent faction sources already supplies the printed board count.' :
         'The gap between these panels is the extra printed board-count constraint in a random sample.';
       const milestones = [3,5,8,12,20].filter(x=>x<=result.settings.turns);
+      if (!milestones.length) milestones.push(result.settings.turns);
       $('milestoneTable').innerHTML = table(['Tier','Position',...milestones.map(t=>`Turn ${t}`)],
         tiers.flatMap(tier=>['first','second'].map(position=>[
           `Tier ${tier.tier}`,position[0].toUpperCase()+position.slice(1),
@@ -127,7 +128,7 @@
         updateDeckCount();
         const mainframe=catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name===$('mainframe').value);
         const result=await engine.analyze(currentParse,mainframe,
-          {trials:Number($('trials').value),turns:Number($('turns').value),ram_target:$('ramTarget').value},status);
+          {trials:5000,turns:Number($('turns').value),ram_target:$('ramTarget').value},status);
         render(result);
       } catch(error) {$('status').hidden=true;showError(error.message);}
       updateDeckCount();
