@@ -46,11 +46,13 @@
       host.append(svg);
     }
     function legend(hostId, tiers) {
-      $(hostId).innerHTML = tiers.map((tier,i)=>`<span><svg viewBox="0 0 38 8" aria-hidden="true"><line x1="1" y1="4" x2="37" y2="4" stroke="${colors[i%colors.length]}" stroke-width="3" stroke-dasharray="${lineStyles[i%lineStyles.length]}"/></svg>Tier ${tier.tier}: ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('');
+      $(hostId).innerHTML = tiers.map((tier,i)=>`<span><svg viewBox="0 0 38 8" aria-hidden="true"><line x1="1" y1="4" x2="37" y2="4" stroke="${colors[i%colors.length]}" stroke-width="3" stroke-dasharray="${lineStyles[i%lineStyles.length]}"/></svg><b>T${tier.tier}</b> = Tier ${tier.tier} · ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('')+
+        `<span><b>1st / 2nd</b> = going first / going second</span>`;
     }
     function table(headers, rows) {
+      const cell = value => value !== null && typeof value === 'object' && 'html' in value ? value.html : esc(value);
       return `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`+
-        rows.map(row=>`<tr>${row.map(value=>`<td>${esc(value)}</td>`).join('')}</tr>`).join('')+'</tbody></table>';
+        rows.map(row=>`<tr>${row.map(cell).join('')}</tr>`).join('')+'</tbody></table>';
     }
     function render(result) {
       latest = result; $('placeholder').hidden = true; $('status').hidden = true; $('results').hidden = false;
@@ -70,33 +72,43 @@
       $('drawRelationship').textContent=draw.every(row=>Math.abs(row.faction_only_probability-row.joint_threshold_probability)<1e-12) ?
         'The exact panels coincide for this deck: seeing the required persistent faction sources already supplies the printed board count.' :
         'The gap between these panels is the extra printed board-count constraint in a random sample.';
+      function medianFirstHit(tier, position) {
+        const rows = curves.filter(r => r.tier === tier && r.position === position).sort((a,b) => a.turn - b.turn);
+        const firstTurns = [];
+        let previous = 0;
+        for (const r of rows) {
+          if (r.reached_count > previous) firstTurns.push(...Array(r.reached_count - previous).fill(r.turn));
+          previous = Math.max(previous, r.reached_count);
+        }
+        return firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : '—';
+      }
       function renderMilestones() {
         const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
         const shown = Math.min(value, result.settings.turns);
         $('milestoneTable').innerHTML = table(
-          ['Tier','Position', `Reached by turn ${shown}`, 'Typical (median) turn'],
-          tiers.flatMap(tier => ['first','second'].map(position => {
-            const rows = curves.filter(r => r.tier === tier.tier && r.position === position).sort((a,b) => a.turn - b.turn);
-            const row = rows.find(r => r.turn === shown);
-            const firstTurns = [];
-            let previous = 0;
-            for (const r of rows) {
-              if (r.reached_count > previous) firstTurns.push(...Array(r.reached_count - previous).fill(r.turn));
-              previous = Math.max(previous, r.reached_count);
-            }
-            const typical = firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : 'not reached';
-            return [`Tier ${tier.tier}`, position[0].toUpperCase()+position.slice(1),
-              row ? `${pct(row.probability)} (${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)})` : '—', typical];
-          })));
+          ['Tier', `Reached by turn ${shown}`, 'Typical turn'],
+          tiers.map(tier => {
+            const at = position => curves.find(r => r.tier === tier.tier && r.position === position && r.turn === shown);
+            const first = at('first'), second = at('second');
+            const span = (row, text) => row ? `<span title="Wilson 95% CI: ${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}">${text}</span>` : '—';
+            return [{html:`<b>T${tier.tier}</b>`},
+              {html:`${span(first, first ? pct(first.probability) : '—')} <span class="hint">1st</span> · ${span(second, second ? pct(second.probability) : '—')} <span class="hint">2nd</span>`},
+              {html:`${medianFirstHit(tier.tier,'first')} <span class="hint">1st</span> · ${medianFirstHit(tier.tier,'second')} <span class="hint">2nd</span>`}];
+          }));
       }
       $('milestoneTurn').addEventListener('input', renderMilestones);
       renderMilestones();
-      const samples=[5,8,12,20];
-      $('drawTable').innerHTML = table(['Tier','Condition',...samples.map(h=>`${h} cards seen`)],
-        tiers.flatMap(tier=>[
-          [`Tier ${tier.tier}`,'Faction icons',...samples.map(h=>pct(draw.find(r=>r.tier===tier.tier&&r.cards_seen===h).faction_only_probability))],
-          [`Tier ${tier.tier}`,'Full printed threshold',...samples.map(h=>pct(draw.find(r=>r.tier===tier.tier&&r.cards_seen===h).joint_threshold_probability))]
-        ]));
+      function renderDraw() {
+        const value = Math.max(5, Math.min(20, Math.round(Number($('cardsSeen').value) || 12)));
+        $('drawTable').innerHTML = table(['Tier', `After ${value} cards seen`],
+          tiers.map(tier => {
+            const row = draw.find(r => r.tier === tier.tier && r.cards_seen === value);
+            return [{html:`<b>T${tier.tier}</b>`},
+              {html:`<span title="Faction icons only">${pct(row.faction_only_probability)}</span> <span class="hint">icons</span> · <span title="Full printed threshold: faction icons + board count">${pct(row.joint_threshold_probability)}</span> <span class="hint">full</span>`}];
+          }));
+      }
+      $('cardsSeen').addEventListener('input', renderDraw);
+      renderDraw();
       $('sourceSummary').innerHTML = tiers.map(tier=>{const s=result.source_summary_by_tier[String(tier.tier)];
         const overlap=Object.keys(tier.faction_requirements).length>1 ?
           ` ${s.multi_required_faction_sources} cards carry both required factions.` : '';

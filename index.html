@@ -171,7 +171,11 @@
           <div id="milestoneTable" class="table-scroll"></div></div>
         <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
           <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
-          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p><div id="drawTable" class="table-scroll"></div></div>
+          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p>
+          <div class="turn-picker"><label for="cardsSeen">After cards seen</label>
+            <input id="cardsSeen" type="number" inputmode="numeric" min="5" max="20" step="1" value="12" aria-describedby="cardsSeenHelp">
+            <span id="cardsSeenHelp" class="hint">Exact odds after that many random cards; “icons” needs only the faction icons, “full” also needs the printed board count.</span></div>
+          <div id="drawTable" class="table-scroll"></div></div>
         <div class="section"><h2>What is in this deck?</h2><div id="sourceSummary"></div></div>
         <div class="section"><h2>How the numbers are calculated</h2><p>The exact calculation sums all without-replacement card combinations whose printed faction-vector and non-RAM persistent count meet a tier. Dual-faction cards can supply both icons but only one board object.</p>
           <div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div>
@@ -179,6 +183,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-4"></script><script src="engine.js?v=20261103-4"></script><script src="app.js?v=20261103-4"></script>
+  <script src="catalog.js?v=20261103-5"></script><script src="engine.js?v=20261103-5"></script><script src="app.js?v=20261103-5"></script>
 </body>
 </html>
