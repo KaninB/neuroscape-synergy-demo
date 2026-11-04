@@ -144,6 +144,41 @@
         $('fileError').textContent=`Could not read ${file.name}. The previous decklist was preserved.`;
       }
     });
+    async function importDeckLink(rawUrl) {
+      $('fileError').hidden=true;
+      let url;
+      try { url=new URL(rawUrl.trim()); } catch { url=null; }
+      if (!url || !/^https?:$/.test(url.protocol)) {
+        $('fileError').hidden=false;
+        $('fileError').textContent='Enter a full https:// link to a decklist.';
+        return;
+      }
+      const button=$('importLink');
+      button.disabled=true;
+      const original=button.textContent;
+      button.textContent='Importing…';
+      try {
+        const response=await fetch(url,{redirect:'follow'});
+        if (!response.ok) throw new Error(`The site answered ${response.status} ${response.statusText || ''}`.trim());
+        const type=response.headers.get('content-type') || '';
+        if (/^image\//i.test(type)) throw new Error('That link serves an image, not a decklist.');
+        const text=await response.text();
+        if (!text.trim()) throw new Error('That link returned an empty page.');
+        $('decklist').value=text;
+        $('decklink').value='';
+        updateDeckCount();
+      } catch (error) {
+        $('fileError').hidden=false;
+        $('fileError').textContent=error.name==='TypeError' ?
+          'This site does not allow browser imports (CORS). Download the file and use Choose file, or host the list on a link-friendly site such as raw.githubusercontent.com.' :
+          `Could not import that link. ${error.message}`;
+      } finally {
+        button.disabled=false;
+        button.textContent=original;
+      }
+    }
+    $('importLink').addEventListener('click',()=>$('decklink').value.trim() && importDeckLink($('decklink').value));
+    $('decklink').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();$('decklink').value.trim() && importDeckLink($('decklink').value);}});
     $('decklist').addEventListener('input',updateDeckCount);
     $('example').addEventListener('click',()=>{$('mainframe').value=catalog.example_mainframe;
       $('decklist').value=catalog.example_decklist;$('inputError').hidden=true;$('fileError').hidden=true;updateDeckCount();});

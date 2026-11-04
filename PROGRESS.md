@@ -26,6 +26,7 @@ and a one-line note on how it was verified.
 
 ## Done
 
+- 2026-11-03 — **Link import added** *(owner request)* — one import block: file picker + URL field with Import button (Enter works too). Fetches in-browser, validates http(s), guards against HTML/image payloads, fills the decklist field, shows a plain-language CORS fallback message. Engine re-verified in Node; app.js syntax-checked; page render-verified.
 - 2026-11-03 — **Spectrum bar removed** *(owner request)* — six-color gradient strip deleted from header; docs/SCOPE design-token notes updated to match. Header/empty-state mark resized square to suit the new favicon-shaped mark.
 - 2026-11-03 — **Favicon I wired in** — owner picked "solid contact strip" variant; `assets/favicon.svg` + generated `favicon-32.png` / `apple-touch-icon.png` (headless Chrome); `<link rel="icon">` tags added; header and empty-state now use the new mark; `logo-circuit-ram.svg` no longer referenced. Verified: automated checks + full-page screenshot.
 - 2026-11-03 — **Favicon round 1 declined** — owner rejected A–D; new direction: **simple diagonal RAM stick with a heartbeat trace through it**. Built four variants (E along-stick, F horizontal-crossing, G bare no-tile, H DIMM pins) in `design/favicon-candidates-2.html`, opened in Chrome for owner review.
