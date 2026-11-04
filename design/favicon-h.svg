@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon H — diagonal DIMM with edge pins and heartbeat</title>
+  <desc>A charcoal tile with a diagonal RAM module showing gold-style edge pins on its lower rim and a teal heartbeat trace along its length.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <g transform="rotate(-42 32 32)">
+    <rect x="9" y="22" width="46" height="15" rx="3" fill="#353B40" stroke="#DDE4EA" stroke-width="3"/>
+    <g stroke="#24C8A5" stroke-width="2.6" stroke-linecap="round">
+      <path d="M14 37v4"/><path d="M20 37v4"/><path d="M26 37v4"/><path d="M32 37v4"/><path d="M38 37v4"/><path d="M44 37v4"/><path d="M50 37v4"/>
+    </g>
+    <path d="M13 29.5h9l3.5-6 5 12 3.5-6h14" fill="none" stroke="#24C8A5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

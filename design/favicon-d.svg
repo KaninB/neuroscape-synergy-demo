@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon D — curve pulse</title>
+  <desc>A charcoal tile with a bold teal upward step line rising across it, echoing the tool's synergy curves.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <path d="M13 45h12V32h13V19h13" fill="none" stroke="#24C8A5" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="51" cy="19" r="4.4" fill="#24C8A5"/>
+</svg>

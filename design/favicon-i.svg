@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon I — DIMM with solid contact strip</title>
+  <desc>A charcoal tile with a diagonal RAM module whose bottom edge is a solid teal contact strip, with a teal heartbeat along the stick.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <g transform="rotate(-42 32 32)">
+    <rect x="8" y="21" width="48" height="17" rx="3" fill="#353B40" stroke="#DDE4EA" stroke-width="3"/>
+    <rect x="12" y="38" width="40" height="5" rx="2.5" fill="#24C8A5"/>
+    <path d="M12 29.5h10l4-6.5 5 13 4-6.5h17" fill="none" stroke="#24C8A5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

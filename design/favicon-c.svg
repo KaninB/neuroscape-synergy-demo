@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon C — teal corner</title>
+  <desc>A charcoal tile with a bold teal arrow notch cut from one corner, reading as an abstract RAM chip.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <path d="M23 20h20a3 3 0 0 1 3 3v20h-9l-6 7-6-7h-2z" fill="none" stroke="#24C8A5" stroke-width="3.6" stroke-linejoin="round"/>
+</svg>

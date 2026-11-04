@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon G — bare diagonal RAM stick with heartbeat</title>
+  <desc>No tile: a charcoal diagonal RAM stick with a teal heartbeat trace along its length, on transparent background.</desc>
+  <g transform="rotate(-42 32 32)">
+    <rect x="6" y="24" width="52" height="16" rx="4" fill="#262B2F" stroke="#DDE4EA" stroke-width="3.4"/>
+    <path d="M11 32h10l3.5-7 5 14 3.5-7h15" fill="none" stroke="#24C8A5" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

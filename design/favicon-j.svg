@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon J — DIMM with keying notch and pins</title>
+  <desc>A charcoal tile with a diagonal RAM module showing a keying notch in its bottom edge, teal edge pins, and a teal heartbeat along the stick.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <g transform="rotate(-42 32 32)">
+    <rect x="8" y="21" width="48" height="16" rx="3" fill="#353B40" stroke="#DDE4EA" stroke-width="3"/>
+    <path d="M29 37v-3.5a3 3 0 0 1 6 0V37" fill="#262B2F" stroke="#DDE4EA" stroke-width="2.6"/>
+    <g stroke="#24C8A5" stroke-width="2.4" stroke-linecap="round">
+      <path d="M13 37v3.5"/><path d="M19 37v3.5"/><path d="M25 37v3.5"/>
+      <path d="M39 37v3.5"/><path d="M45 37v3.5"/><path d="M51 37v3.5"/>
+    </g>
+    <path d="M12 28.5h9l3.5-5.5 5 11 3.5-5.5h16" fill="none" stroke="#24C8A5" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

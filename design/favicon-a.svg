@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Neuroscape favicon A — chip + pins</title>
+  <desc>A charcoal rounded chip with a teal core notch and eight teal pins, based on the RAM Core logo candidate.</desc>
+  <rect x="6" y="6" width="52" height="52" rx="11" fill="#262B2F" stroke="#DDE4EA" stroke-width="4"/>
+  <path d="M21 24h22v16h-11l-5.5 8L21 40z" fill="#353B40" stroke="#24C8A5" stroke-width="3.4"/>
+  <g stroke="#24C8A5" stroke-width="3.4" stroke-linecap="round">
+    <path d="M18 6v9"/><path d="M32 6v9"/><path d="M46 6v9"/>
+    <path d="M18 49v9"/><path d="M32 49v9"/><path d="M46 49v9"/>
+    <path d="M6 21h9"/><path d="M6 35h9"/>
+    <path d="M49 21h9"/><path d="M49 35h9"/>
+  </g>
+</svg>
