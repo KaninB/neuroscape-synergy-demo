@@ -12,38 +12,74 @@
       if (text) el.textContent = text;
       return el;
     }
-    function chart(hostId, rows, xKey, yKey, xMin, xMax, xLabel) {
-      const host = $(hostId); host.replaceChildren();
-      const w = 570, h = 345, l = 53, r = 14, t = 18, b = 45;
-      const sx = x => l + (x - xMin) / Math.max(1, xMax - xMin) * (w - l - r);
-      const sy = y => t + (1 - y) * (h - t - b);
-      const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
-        'aria-label':`${xLabel} synergy probability chart`});
-      for (const value of [0,.25,.5,.75,1]) {
-        svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
-        svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':12},`${value*100}%`));
-      }
-      const ticks = xLabel === 'Own turn' ? [1,3,5,8,10,12,16,20].filter(x=>x>=xMin&&x<=xMax)
-        : [5,8,12,16,20].filter(x=>x>=xMin&&x<=xMax);
-      for (const value of ticks) {
-        svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#7B8992'}));
-        svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':12},String(value)));
-      }
-      svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':12},xLabel));
-      const tiers = [...new Set(rows.map(row=>row.tier))].sort((a,b)=>a-b);
-      for (const [index,tier] of tiers.entries()) {
-        const points = rows.filter(row=>row.tier===tier).sort((a,b)=>a[xKey]-b[xKey]);
-        if (!points.length) continue;
-        const parts = [`M ${sx(points[0][xKey])} ${sy(points[0][yKey])}`];
-        for (let i=1;i<points.length;i++) {
-          parts.push(`H ${sx(points[i][xKey])} V ${sy(points[i][yKey])}`);
+    function chart(hostId, rows, xKey, yKey, xMin, xMax, xLabel, seriesLabel) {
+      const host = $(hostId); host.style.position = 'relative';
+      const drawChart = () => {
+        host.replaceChildren();
+        const tall = host.clientWidth > 0 && host.clientWidth < 430;
+        const w = tall ? 340 : 570, h = tall ? 430 : 345, l = tall ? 47 : 53, r = 14, t = 18, b = 45, fs = tall ? 13 : 12;
+        const sx = x => l + (x - xMin) / Math.max(1, xMax - xMin) * (w - l - r);
+        const sy = y => t + (1 - y) * (h - t - b);
+        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
+          'aria-label':`${xLabel} synergy probability chart`});
+        for (const value of [0,.25,.5,.75,1]) {
+          svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
+          svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${value*100}%`));
         }
-        svg.append(svgNode('path',{d:parts.join(' '),fill:'none',stroke:colors[index%colors.length],
-          'stroke-width':3,'stroke-linejoin':'round','stroke-dasharray':lineStyles[index%lineStyles.length]}));
-        for (const point of points) svg.append(svgNode('circle',{cx:sx(point[xKey]),cy:sy(point[yKey]),r:2.6,
-          fill:colors[index%colors.length]}));
-      }
-      host.append(svg);
+        const ticks = (xLabel === 'Own turn' ? (tall ? [1,3,5,8,12] : [1,3,5,8,10,12,16,20]) : [5,8,12,16,20])
+          .filter(x=>x>=xMin&&x<=xMax);
+        for (const value of ticks) {
+          svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#7B8992'}));
+          svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(value)));
+        }
+        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},xLabel));
+        const ordered = rows.slice().sort((a,b)=>a[xKey]-b[xKey]);
+        const points = [];
+        for (const tier of [...new Set(ordered.map(row=>row.tier))].sort((a,b)=>a-b)) {
+          const color = colors[(tier-1)%colors.length];
+          const series = ordered.filter(row=>row.tier===tier);
+          if (!series.length) continue;
+          const parts = [`M ${sx(series[0][xKey])} ${sy(series[0][yKey])}`];
+          for (let i=1;i<series.length;i++) parts.push(`H ${sx(series[i][xKey])} V ${sy(series[i][yKey])}`);
+          svg.append(svgNode('path',{d:parts.join(' '),fill:'none',stroke:color,
+            'stroke-width':3,'stroke-linejoin':'round'}));
+          for (const row of series) {
+            const circle = svgNode('circle',{cx:sx(row[xKey]),cy:sy(row[yKey]),r:2.6,fill:color});
+            svg.append(circle);
+            points.push({px:sx(row[xKey]),py:sy(row[yKey]),x:row[xKey],y:row[yKey],circle,label:seriesLabel(row)});
+          }
+        }
+        host.append(svg);
+        const tip = document.createElement('div');
+        tip.className = 'chart-tip';
+        tip.style.display = 'none';
+        host.append(tip);
+        svg.addEventListener('pointermove', event => {
+          const rect = svg.getBoundingClientRect();
+          const mx = (event.clientX - rect.left) * w / rect.width;
+          const my = (event.clientY - rect.top) * h / rect.height;
+          let best = null, bestD = Infinity;
+          for (const p of points) {
+            const d = (p.px - mx) ** 2 + (p.py - my) ** 2;
+            if (d < bestD) { bestD = d; best = p; }
+          }
+          if (!best) return;
+          for (const p of points) p.circle.setAttribute('r', p === best ? 5.4 : 2.6);
+          tip.innerHTML = `<b>${esc(best.label)}</b><br>${esc(xLabel)} ${best.x}: ${pct(best.y)}`;
+          tip.style.display = 'block';
+          const hostRect = host.getBoundingClientRect();
+          let tx = event.clientX - hostRect.left + 13;
+          if (tx + 190 > hostRect.width) tx -= 210;
+          tip.style.left = Math.max(0, tx) + 'px';
+          tip.style.top = Math.max(0, event.clientY - hostRect.top - 14) + 'px';
+        });
+        svg.addEventListener('pointerleave', () => {
+          tip.style.display = 'none';
+          for (const p of points) p.circle.setAttribute('r', 2.6);
+        });
+      };
+      drawChart();
+      chartRedraws.push(drawChart);
     }
     function legend(hostId, tiers) {
       $(hostId).innerHTML = tiers.map((tier,i)=>`<span><svg viewBox="0 0 38 8" aria-hidden="true"><line x1="1" y1="4" x2="37" y2="4" stroke="${colors[i%colors.length]}" stroke-width="3" stroke-dasharray="${lineStyles[i%lineStyles.length]}"/></svg><b>T${tier.tier}</b> = Tier ${tier.tier} · ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('')+
@@ -51,8 +87,13 @@
     }
     function table(headers, rows) {
       const cell = value => value !== null && typeof value === 'object' && 'html' in value ? value.html : esc(value);
-      return `<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`+
-        rows.map(row=>`<tr>${row.map(cell).join('')}</tr>`).join('')+'</tbody></table>';
+      const header = h => h !== null && typeof h === 'object' && 'html' in h ? h.html : esc(h);
+      return `<table><thead><tr>${headers.map(header).join('')}</tr></thead><tbody>`+
+        rows.map(row=>{
+          const cls = row && row.rowClass ? ` class="${esc(row.rowClass)}"` : '';
+          const cells = row && row.cells ? row.cells : row;
+          return `<tr${cls}>${cells.map(cell).join('')}</tr>`;
+        }).join('')+'</tbody></table>';
     }
     function render(result) {
       latest = result; $('placeholder').hidden = true; $('status').hidden = true; $('results').hidden = false;
@@ -64,10 +105,14 @@
         `<div class="stat"><b>${source.source_cards}</b><small>High-tier faction sources</small></div>`+
         `<div class="stat"><b>${pct(source.source_fraction)}</b><small>Source density</small></div>`+
         `<div class="stat"><b>${result.settings.ram_target}</b><small>Selected RAM target</small></div>`;
-      chart('firstChart',curves.filter(r=>r.position==='first'),'turn','probability',1,result.settings.turns,'Own turn');
-      chart('secondChart',curves.filter(r=>r.position==='second'),'turn','probability',1,result.settings.turns,'Own turn');
-      chart('factionChart',draw,'cards_seen','faction_only_probability',5,20,'Random cards seen');
-      chart('jointChart',draw,'cards_seen','joint_threshold_probability',5,20,'Random cards seen');
+      chart('firstChart',curves.filter(r=>r.position==='first'),'turn','probability',1,result.settings.turns,'Own turn',
+        row=>`Tier ${row.tier} · going first`);
+      chart('secondChart',curves.filter(r=>r.position==='second'),'turn','probability',1,result.settings.turns,'Own turn',
+        row=>`Tier ${row.tier} · going second`);
+      chart('factionChart',draw,'cards_seen','faction_only_probability',5,20,'Random cards seen',
+        row=>`Tier ${row.tier} · faction icons present`);
+      chart('jointChart',draw,'cards_seen','joint_threshold_probability',5,20,'Random cards seen',
+        row=>`Tier ${row.tier} · icons + board count`);
       legend('turnLegend',tiers); legend('drawLegend',tiers);
       $('drawRelationship').textContent=draw.every(row=>Math.abs(row.faction_only_probability-row.joint_threshold_probability)<1e-12) ?
         'The exact panels coincide for this deck: seeing the required persistent faction sources already supplies the printed board count.' :
@@ -85,27 +130,42 @@
       function renderMilestones() {
         const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
         const shown = Math.min(value, result.settings.turns);
+        const turns = TURN_LANDMARKS.filter(t => t <= result.settings.turns);
+        const mark = row => row ? {html:`<b>${pct(row.probability)}</b><span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span>`} : {html:'<span class="dim">—</span>'};
         $('milestoneTable').innerHTML = table(
-          ['Tier', `Reached by turn ${shown}`, 'Typical turn'],
-          tiers.map(tier => {
-            const at = position => curves.find(r => r.tier === tier.tier && r.position === position && r.turn === shown);
-            const first = at('first'), second = at('second');
-            const span = (row, text) => row ? `<span title="Wilson 95% CI: ${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}">${text}</span>` : '—';
-            return [{html:`<b>T${tier.tier}</b>`},
-              {html:`${span(first, first ? pct(first.probability) : '—')} <span class="hint">1st</span> · ${span(second, second ? pct(second.probability) : '—')} <span class="hint">2nd</span>`},
-              {html:`${medianFirstHit(tier.tier,'first')} <span class="hint">1st</span> · ${medianFirstHit(tier.tier,'second')} <span class="hint">2nd</span>`}];
-          }));
+          [{html:'<span class="tierkey">Tier · position</span>'},
+            ...turns.map(t => ({html:`t=${t}`})),
+            {html:'<span class="tierkey">Typical</span>'}],
+          tiers.flatMap(tier => ['first','second'].map(position => ({
+            rowClass: position === 'first' ? 'pos-first' : 'pos-second',
+            cells: [
+              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">${position === 'first' ? '1st' : '2nd'}</span>`},
+              ...turns.map(t => mark(curves.find(r => r.tier === tier.tier && r.position === position && r.turn === t))),
+              {html:`turn ${medianFirstHit(tier.tier, position)}`}
+            ]}))));
       }
       $('milestoneTurn').addEventListener('input', renderMilestones);
       renderMilestones();
       function renderDraw() {
         const value = Math.max(5, Math.min(20, Math.round(Number($('cardsSeen').value) || 12)));
-        $('drawTable').innerHTML = table(['Tier', `After ${value} cards seen`],
-          tiers.map(tier => {
-            const row = draw.find(r => r.tier === tier.tier && r.cards_seen === value);
-            return [{html:`<b>T${tier.tier}</b>`},
-              {html:`<span title="Faction icons only">${pct(row.faction_only_probability)}</span> <span class="hint">icons</span> · <span title="Full printed threshold: faction icons + board count">${pct(row.joint_threshold_probability)}</span> <span class="hint">full</span>`}];
-          }));
+        const seen = SEEN_LANDMARKS;
+        const mark = (v, tip) => ({html:`<span title="${tip}"><b>${pct(v)}</b></span>`});
+        $('drawTable').innerHTML = table(
+          [{html:'<span class="tierkey">Tier · condition</span>'},
+            ...seen.map(h => ({html:`${h} seen`})),
+            {html:'<span class="tierkey">After ' + value + '</span>'}],
+          tiers.flatMap(tier => [
+            {cells: [
+              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">icons</span>`},
+              ...seen.map(h => mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h).faction_only_probability, 'Faction icons present')),
+              mark(draw.find(r => r.tier === tier.tier && r.cards_seen === value).faction_only_probability, 'Faction icons present (your pick)')
+            ], rowClass: 'pos-first'},
+            {cells: [
+              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">full</span>`},
+              ...seen.map(h => mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h).joint_threshold_probability, 'Faction icons + board count')),
+              mark(draw.find(r => r.tier === tier.tier && r.cards_seen === value).joint_threshold_probability, 'Faction icons + board count (your pick)')
+            ], rowClass: 'pos-second'}
+          ]));
       }
       $('cardsSeen').addEventListener('input', renderDraw);
       renderDraw();
@@ -121,6 +181,11 @@
       $('warnings').innerHTML = result.warnings.map(w=>`<div>${esc(w)}</div>`).join('');
       $('results').scrollIntoView({behavior:'smooth',block:'start'});
     }
+    let resizeTimer = null;
+    addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { for (const redraw of chartRedraws) redraw(); }, 160);
+    });
     function status(p) {
       $('status').hidden=false; $('phase').textContent=p.phase || 'Calculating';
       const fraction=p.total ? Math.min(1,p.completed/p.total) : 0;
