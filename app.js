@@ -145,6 +145,7 @@
           b.classList.toggle('on', on);
           b.setAttribute('aria-pressed', String(on));
         }
+        renderMilestones();
         requestAnimationFrame(() => { for (const redraw of chartRedraws) redraw(); });
       };
       for (const b of document.querySelectorAll('#positionToggle button'))
@@ -166,7 +167,7 @@
           [{html:'<span class="tierkey">Tier · position</span>'},
             ...turns.map(t => ({html:t === shown ? `<span class="picked">t=${t} ▾</span>` : `t=${t}`})),
             {html:'<span class="tierkey">Typical</span>'}],
-          tiers.flatMap(tier => ['first','second'].map(position => ({
+          tiers.flatMap(tier => (positionView === 'both' ? ['first','second'] : [positionView]).map(position => ({
             rowClass: position === 'first' ? 'pos-first' : 'pos-second',
             cells: cellsOf(tier, position)
           }))));
@@ -216,13 +217,27 @@
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { for (const redraw of chartRedraws) redraw(); }, 160);
     });
+    let progressState = null;
     function status(p) {
-      $('status').hidden=false; $('phase').textContent=p.phase || 'Calculating';
-      const fraction=p.total ? Math.min(1,p.completed/p.total) : 0;
-      $('progressFill').style.width=`${Math.round(100*fraction)}%`;
-      const where=p.position==='first' ? ' · going first' : p.position==='second' ? ' · going second' : '';
-      $('progressText').textContent=p.total>1 ?
-        `${p.completed || 0} / ${p.total.toLocaleString()} ${p.stage==='pilot' ? 'pilot games' : 'games'}${where} · ${Math.round(100*fraction)}%` :
+      $('status').hidden=false;
+      if (!progressState) progressState = { mainTotal:0, first:0, second:0 };
+      const s = progressState;
+      if (p.stage === 'pilot') {
+        // Pilot games are a separate small phase; show them without a percent
+        // so the bar never jumps backward when the main phase begins.
+        $('phase').textContent = p.phase || 'Calculating';
+        $('progressFill').style.width = '8%';
+        $('progressText').textContent = `${p.completed} / ${p.total} pilot games`;
+        return;
+      }
+      s.mainTotal = p.total;
+      s[p.position] = p.completed;
+      const done = s.first + s.second, total = 2 * s.mainTotal;
+      const fraction = total ? Math.min(1, done / total) : 0;
+      $('phase').textContent = p.phase || 'Calculating';
+      $('progressFill').style.width = `${Math.round(100 * fraction)}%`;
+      $('progressText').textContent = total > 1 ?
+        `${done.toLocaleString()} / ${total.toLocaleString()} games${p.position === 'first' ? ' · going first' : ' · going second'} · ${Math.round(100 * fraction)}%` :
         'Exact combinatorial calculation';
     }
     function updateDeckCount() {
@@ -244,7 +259,7 @@
     function showError(message) {$('inputError').hidden=false;$('inputError').textContent=message;}
     $('analyze').addEventListener('click',async()=>{
       $('inputError').hidden=true; $('analyze').disabled=true; $('results').hidden=true;
-      $('placeholder').hidden=true; $('status').hidden=false;
+      $('placeholder').hidden=true; $('status').hidden=false; progressState = null;
       $('phase').textContent='Validating decklist'; $('progressFill').style.width='0%'; $('progressText').textContent='';
       try {
         updateDeckCount();
