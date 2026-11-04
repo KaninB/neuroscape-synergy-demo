@@ -70,13 +70,27 @@
       $('drawRelationship').textContent=draw.every(row=>Math.abs(row.faction_only_probability-row.joint_threshold_probability)<1e-12) ?
         'The exact panels coincide for this deck: seeing the required persistent faction sources already supplies the printed board count.' :
         'The gap between these panels is the extra printed board-count constraint in a random sample.';
-      const milestones = [3,5,8,12,20].filter(x=>x<=result.settings.turns);
-      if (!milestones.length) milestones.push(result.settings.turns);
-      $('milestoneTable').innerHTML = table(['Tier','Position',...milestones.map(t=>`Turn ${t}`)],
-        tiers.flatMap(tier=>['first','second'].map(position=>[
-          `Tier ${tier.tier}`,position[0].toUpperCase()+position.slice(1),
-          ...milestones.map(turn=>{const row=curves.find(r=>r.tier===tier.tier&&r.position===position&&r.turn===turn);
-            return `${pct(row.probability)} (${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)})`;})])));
+      function renderMilestones() {
+        const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
+        const shown = Math.min(value, result.settings.turns);
+        $('milestoneTable').innerHTML = table(
+          ['Tier','Position', `Reached by turn ${shown}`, 'Typical (median) turn'],
+          tiers.flatMap(tier => ['first','second'].map(position => {
+            const rows = curves.filter(r => r.tier === tier.tier && r.position === position).sort((a,b) => a.turn - b.turn);
+            const row = rows.find(r => r.turn === shown);
+            const firstTurns = [];
+            let previous = 0;
+            for (const r of rows) {
+              if (r.reached_count > previous) firstTurns.push(...Array(r.reached_count - previous).fill(r.turn));
+              previous = Math.max(previous, r.reached_count);
+            }
+            const typical = firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : 'not reached';
+            return [`Tier ${tier.tier}`, position[0].toUpperCase()+position.slice(1),
+              row ? `${pct(row.probability)} (${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)})` : '—', typical];
+          })));
+      }
+      $('milestoneTurn').addEventListener('input', renderMilestones);
+      renderMilestones();
       const samples=[5,8,12,20];
       $('drawTable').innerHTML = table(['Tier','Condition',...samples.map(h=>`${h} cards seen`)],
         tiers.flatMap(tier=>[

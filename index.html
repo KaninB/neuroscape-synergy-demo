@@ -81,6 +81,9 @@
     .countbox strong { display:block; font:700 15px/1.25 Arial,Helvetica,sans-serif; }
     .countbox small { color:var(--muted); display:block; margin-top:4px; }
     .countbox.invalid { background:#3a3028; border-color:var(--warning); }
+    .turn-picker { display:flex; align-items:center; gap:10px; margin:12px 0 8px; flex-wrap:wrap; }
+    .turn-picker label { margin:0; }
+    .turn-picker input { width:92px; }
     .status { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:18px; margin:10px 0; }
     .progress { height:11px; border-radius:99px; background:#1b2023; overflow:hidden; margin:12px 0 5px; }
     .progress > div { height:100%; width:0%; background:var(--action); transition:width .25s; }
@@ -161,7 +164,11 @@
         <div id="stats" class="stat-grid"></div>
         <div class="section"><h2>Reached by your own turn</h2><p class="hint">A tier stays counted after its first hit, even if a later force quit removes its sources. Each curve is n = 5,000 simulated games per position; Wilson 95% intervals appear below.</p>
           <div class="grid-2"><div class="chart-box"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box"><h3>Going second</h3><div id="secondChart"></div></div></div>
-          <div id="turnLegend" class="legend"></div><div id="milestoneTable" class="table-scroll"></div></div>
+          <div id="turnLegend" class="legend"></div>
+          <div class="turn-picker"><label for="milestoneTurn">Reached by turn</label>
+            <input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="8" aria-describedby="milestoneHelp">
+            <span id="milestoneHelp" class="hint">Percent reached by that turn with Wilson 95% intervals; “typical” is the median turn the tier first comes online.</span></div>
+          <div id="milestoneTable" class="table-scroll"></div></div>
         <div class="section"><h2>Exact printed-card access</h2><p class="hint">These are exact probabilities after <em>h random cards seen</em>, not after turn h. They ignore RAM, play legality, mulligan choices, and card effects.</p>
           <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
           <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p><div id="drawTable" class="table-scroll"></div></div>
@@ -172,6 +179,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-3"></script><script src="engine.js?v=20261103-3"></script><script src="app.js?v=20261103-3"></script>
+  <script src="catalog.js?v=20261103-4"></script><script src="engine.js?v=20261103-4"></script><script src="app.js?v=20261103-4"></script>
 </body>
 </html>
