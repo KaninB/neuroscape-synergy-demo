@@ -251,8 +251,11 @@
         const shareOf = v => (d.bins[v] || 0) / total;
         const med = medianOf(d.bins);
         $('ramNote').textContent = `How much RAM the simulated player had installed when Tier ${d.tier}'s synergy clicked — going ${positionView === 'first' ? 'first' : 'second'} (n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} reaching games). Dashed line: typical (median) RAM${med !== null ? ' = ' + med : ''}. Bars far right = the tier waits on RAM installs; a late curve with bars far left = the tier waits on pieces.`;
+        // Plot the full plausible range 0 → max observed, including empty
+        // slots: gaps between spikes are real structure (those RAM values are
+        // rarely held at click time), not missing data, so show them at zero.
         const maxRam = Math.max(...Object.keys(d.bins).map(Number));
-        const minRam = Math.min(...Object.keys(d.bins).map(Number));
+        const minRam = 0;
         const tall = host.clientWidth > 0 && host.clientWidth < 430;
         const w = tall ? 340 : 960, h = tall ? 380 : 300, l = tall ? 64 : 70, r = tall ? 16 : 20, t = 18, b = 46, fs = tall ? 13 : 12;
         const slots = Math.max(1, maxRam - minRam + 1);
