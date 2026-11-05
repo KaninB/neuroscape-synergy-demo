@@ -44,10 +44,10 @@ Current scope lines — do not build these without revisiting this document:
 
 **Shipped (v0, commit 937ad81):**
 - Decklist upload (.txt/.csv/.md) or paste; flexible line formats; section headers (`#CYBERDECK`, `#RAM`, `#SIDEBOARD`, `#MAINFRAME`); copy-limit and legality validation with line-numbered errors.
-- Mainframe picker (20 in catalog) with auto-detect from exports.
+- Mainframe picker (20 in catalog) with auto-detect from exports. **(2026-11-05: now a type-to-filter combobox with keyboard navigation.)**
 - Decklist import from file (.txt/.csv/.md) **or link** (added 2026-11-03): one import block, both paths. Links to `azuniverse.net/decks/{id}` are auto-converted to the site's JSON API and transformed into a decklist (Mainframe line + `#CYBERDECK` section; sideboard preserved; RAM section skipped). azuniverse.net sends no CORS header, so azuniverse imports try the direct API then public CORS relays; plain-text links (CORS-enabled hosts) fetch directly.
 - Exact draw curves per tier: faction-only vs. full printed threshold (faction + board count), cards seen 5–20.
-- Simulated turn curves per tier, going first/second, turns 1–40, **fixed 5,000 trials per position** (owner decision 2026-11-03: no trial selector; n disclosed in the results subtitle and curve hint), Wilson 95% intervals.
+- Simulated turn curves per tier, going first/second, **turn horizon (default 6 own turns) plus optional extra turns (2026-11-05; was a 1–40 max-turns input, default 12)**, fixed 5,000 trials per position (owner decision 2026-11-03: no trial selector; n disclosed in the results subtitle and curve hint), Wilson 95% intervals.
 - Auto RAM-target selection via pilot runs (or manual stop-at-N RAM).
 - Source summary per tier (counts, density, RAM-cost and type breakdowns).
 - Milestone + draw tables, deck composition summary, JSON result download, 50-card example deck.
@@ -135,8 +135,8 @@ Restrained: progress-bar width transition and popover fades only. No entrance an
 Answered 2026-11-03 (recorded in §1, §2, §5, §6): ambition = web-hosted player tool; audience = players new and old; catalog = static, manual updates; styling = locked except a simpler RAM mark/favicon.
 
 Still open:
-1. ~~Max turns bounds~~ — **resolved 2026-11-03:** numeric input, 1–40, default 12; shipped with the fixed-trials change.
-2. **RAM strategy rename** — proposed new label "Simulated RAM budget" (copy in §7). Approve or offer alternative.
+1. ~~Max turns bounds~~ — **superseded 2026-11-05:** replaced by **Turn horizon** (own turns, default 6) + **Extra turns** (0–34, default 0); engine still takes one absolute `turns` value, validated 1–40.
+2. ~~RAM strategy rename~~ — **shipped 2026-11-05** as "Simulated RAM budget" with the §7 voice line; option label now "Chosen automatically".
 3. **New RAM mark direction** — ~~resolved~~ favicon shipped (§6). Site header now uses the same mark; ❓ whether a distinct wider header logo is wanted later.
 4. **Fidelity roadmap** — is "structural only" permanent, or are printed draw/tutor/ramp effects (the biggest curve-distorters) a planned modeling layer? *(owner: later goal — see PROGRESS.md)*
 5. **Distribution** — GitHub Pages remains the home; URL sharing declined (owner, 2026-11-03). Export preferences instead: PNG and/or copyable stats — pick format when prioritized.

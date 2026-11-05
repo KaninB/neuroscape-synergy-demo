@@ -85,6 +85,14 @@
     .turn-picker label { margin:0; }
     .turn-picker input { width:92px; }
     /* Custom stepper: hides native spinners, flanking − / + buttons instead */
+    .combo { position:relative; }
+    .combo input { width:100%; }
+    .combo-list { position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; margin:0; padding:4px; list-style:none;
+      background:var(--panel); border:1px solid var(--line); border-radius:4px; box-shadow:0 14px 34px rgba(0,0,0,.45); max-height:286px; overflow-y:auto; }
+    .combo-list li { padding:8px 10px; border-radius:3px; cursor:pointer; color:var(--text); font-size:14px; }
+    .combo-list li:hover { background:#3E454B; }
+    .combo-list li[aria-selected="true"] { background:var(--action); color:var(--action-ink); }
+    .combo-list li.empty { color:var(--muted); cursor:default; font-style:italic; }
     .stepper { display:inline-flex; align-items:stretch; }
     .stepper input { width:74px; text-align:center; border-radius:0; -moz-appearance:textfield; }
     .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -193,16 +201,22 @@
         <div class="inline-actions"><button class="secondary" type="button" id="example">Load 50-card example</button></div>
         <div id="fileError" class="error file-error" hidden></div>
       </div>
-      <div class="label-row"><label for="mainframe">Mainframe</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Mainframe" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Detected from an AZ Universe export when present. Otherwise, select the Mainframe manually.</span></span></div>
-      <select id="mainframe"></select>
+      <div class="label-row"><label for="mainframe">Mainframe</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Mainframe" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Detected from an AZ Universe export when present. Otherwise, type to filter the list and pick the Mainframe manually.</span></span></div>
+      <div class="combo" id="mainframeCombo">
+        <input id="mainframe" type="text" role="combobox" aria-expanded="false" aria-controls="mainframeList" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Type to filter Mainframes…">
+        <ul id="mainframeList" class="combo-list" role="listbox" aria-label="Mainframes" hidden></ul>
+      </div>
       <div class="label-row"><label for="decklist">Decklist</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Decklist" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Only Cyberdeck cards enter the calculation. Mainframe, sideboard, and RAM sections are excluded from the Cyberdeck count.</span></span></div>
       <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
       <div id="deckCount" class="countbox" aria-live="polite"><strong>0 cyberdeck cards</strong><small>Paste a list or upload an export to count its cards.</small></div>
-      <div class="label-row"><label for="turns">Max turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About max turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">The last own turn displayed on the estimated turn curves. Choose 1–40; 12 matches the article horizon, 20–40 reveals slower decks.</span></span></div>
-      <div class="stepper"><button class="step-btn minus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Decrease max turns">−</button><input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="12" aria-describedby="turnsHelp"><button class="step-btn plus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Increase max turns">+</button></div>
-      <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached by your own turn, up to this maximum.</p>
-      <div class="label-row"><label for="ramTarget">Installed RAM strategy</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Installed RAM strategy" aria-expanded="false">i</button><span class="info-popover" role="tooltip">This is where the simulated player stops installing RAM and starts prioritizing card draws. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
-      <select id="ramTarget"><option value="auto" selected>Choose automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
+      <div class="label-row"><label for="turns">Turn horizon</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About turn horizon" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How many of your own turns the simulated games run. Curves, chips, and the milestone picker all stop at this turn.</span></span></div>
+      <div class="stepper"><button class="step-btn minus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Decrease turn horizon">−</button><input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="6" aria-describedby="turnsHelp"><button class="step-btn plus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Increase turn horizon">+</button></div>
+      <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached by your own turn, up to this horizon.</p>
+      <div class="label-row"><label for="extraTurns">Extra turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About extra turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Extends the horizon for slower decks: curves run the horizon plus this many additional own turns. Leave at 0 to keep the default window.</span></span></div>
+      <div class="stepper"><button class="step-btn minus" type="button" data-for="extraTurns" data-min="0" data-max="34" aria-label="Decrease extra turns">−</button><input id="extraTurns" type="number" inputmode="numeric" min="0" max="34" step="1" value="0" aria-describedby="extraTurnsHelp"><button class="step-btn plus" type="button" data-for="extraTurns" data-min="0" data-max="34" aria-label="Increase extra turns">+</button></div>
+      <p id="extraTurnsHelp" class="setting-explanation">Adds this many own turns on top of the horizon — for slower decks you still want to see.</p>
+      <div class="label-row"><label for="ramTarget">Simulated RAM budget</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Simulated RAM budget" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How much RAM the simulated player builds each game before switching to drawing cards. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
+      <select id="ramTarget"><option value="auto" selected>Chosen automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
       <p class="setting-explanation">Automatic tests several stopping points, then uses the one that reached this Mainframe's tiers earliest in pilot games.</p>
       <button class="submit" id="analyze" type="button" disabled>Calculate curves</button>
       <div id="inputError" class="error" hidden></div>
@@ -239,6 +253,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261104-2"></script><script src="engine.js?v=20261104-2"></script><script src="app.js?v=20261104-2"></script>
+  <script src="catalog.js?v=20261105-1"></script><script src="engine.js?v=20261105-1"></script><script src="app.js?v=20261105-1"></script>
 </body>
 </html>

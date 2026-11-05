@@ -46,7 +46,7 @@
       const trials = result.settings.trials_per_position, maxTurn = result.settings.turns;
       let positionView = 'first';
       $('resultTitle').textContent = `${mf.name} · ${result.deck_size} cards`;
-      $('resultSubtitle').textContent = `n = ${trials.toLocaleString()} simulated games per position · max turn ${maxTurn} · RAM budget ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
+      $('resultSubtitle').textContent = `n = ${trials.toLocaleString()} simulated games per position · ${maxTurn} own turns · RAM budget ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
       function medianFirstHit(tier, position) {
         const rows = curves.filter(r => r.tier === tier && r.position === position).sort((a,b) => a.turn - b.turn);
         const firstTurns = [];
@@ -298,8 +298,8 @@
     function updateDeckCount() {
       currentParse = engine.parseDecklist($('decklist').value, catalog);
       const parsed = currentParse, box = $('deckCount');
-      if (parsed.mainframe) $('mainframe').value = parsed.mainframe.name;
       const validSize = parsed.deckCount >= 50 && parsed.deckCount <= 255;
+      if (parsed.mainframe) $('mainframe').value = parsed.mainframe.name;
       box.classList.toggle('invalid', !!$('decklist').value.trim() && (!validSize || parsed.errors.length>0));
       const parts = [`${parsed.uniqueCount} unique cards`];
       if (parsed.mainframe) parts.push(`Mainframe detected: ${parsed.mainframe.name}`);
@@ -312,15 +312,82 @@
       $('analyze').disabled = !validSize || parsed.errors.length > 0;
     }
     function showError(message) {$('inputError').hidden=false;$('inputError').textContent=message;}
+    // --- Mainframe combobox: type-to-filter, ArrowUp/Down + Enter selection, Escape closes ---
+    function initMainframeCombo(names) {
+      const input=$('mainframe'), list=$('mainframeList');
+      let open=false, filtered=names, active=-1;
+      const close=()=>{open=false;list.hidden=true;input.setAttribute('aria-expanded','false');};
+      const setActive=i=>{
+        active=i;
+        [...list.children].forEach((li,idx)=>li.setAttribute('aria-selected',String(idx===i)));
+        if(i>=0&&list.children[i]){list.children[i].scrollIntoView({block:'nearest'});}
+      };
+      const choose=name=>{
+        input.value=name;
+        delete input.dataset.typed;
+        close();
+        updateDeckCount();
+        input.focus();
+        input.select();
+      };
+      const render=()=>{
+        const q=input.dataset.typed?input.value.trim().toLowerCase():'';
+        filtered=q?names.filter(n=>n.toLowerCase().includes(q)):names;
+        active=-1;
+        list.innerHTML=filtered.length
+          ?filtered.map(n=>`<li role="option" aria-selected="false">${esc(n)}</li>`).join('')
+          :'<li class="empty" role="option" aria-selected="false" aria-disabled="true">No Mainframe matches.</li>';
+        list.hidden=false;
+        open=true;
+        input.setAttribute('aria-expanded','true');
+      };
+      input.addEventListener('input',()=>{input.dataset.typed='1';render();});
+      // Click or focus with an untouched field shows the full list for browsing;
+      // typing always filters.
+      input.addEventListener('focus',()=>{if(!open&&!input.dataset.typed)render();});
+      input.addEventListener('click',()=>{if(!open)render();});
+      input.addEventListener('keydown',event=>{
+        if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+          event.preventDefault();
+          if(!open)render();
+          else{
+            const count=list.children.length, empty=list.querySelector('.empty');
+            const usable=empty?0:count;
+            if(!usable)return;
+            active=active<0?(event.key==='ArrowDown'?0:usable-1)
+              :Math.min(usable-1,Math.max(0,active+(event.key==='ArrowDown'?1:-1)));
+            setActive(active);
+          }
+        } else if(event.key==='Enter'){
+          event.preventDefault();
+          if(open&&active>=0&&filtered[active])choose(filtered[active]);
+          else if(open&&filtered.length===1)choose(filtered[0]);
+          else close();
+        } else if(event.key==='Escape'&&open){
+          event.stopPropagation();
+          close();
+        } else if(event.key==='Tab'&&open) close();
+      });
+      list.addEventListener('mousedown',event=>{
+        const li=event.target.closest('li');
+        if(li&&!li.classList.contains('empty')){event.preventDefault();choose(li.textContent);}
+      });
+      input.addEventListener('blur',()=>setTimeout(()=>{if(open)close();},120));
+    }
     $('analyze').addEventListener('click',async()=>{
       $('inputError').hidden=true; $('analyze').disabled=true; $('results').hidden=true;
       $('placeholder').hidden=true; $('status').hidden=false; progressState = null;
       $('phase').textContent='Validating decklist'; $('progressFill').style.width='0%'; $('progressText').textContent='';
       try {
         updateDeckCount();
-        const mainframe=catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name===$('mainframe').value);
+        const extra = Math.max(0, Math.min(34, Math.round(Number($('extraTurns').value) || 0)));
+        const horizon = Math.max(1, Math.min(40, Math.round(Number($('turns').value) || 6)));
+        const turns = Math.max(1, Math.min(40, horizon + extra));
+        const wanted=$('mainframe').value.trim().toLowerCase();
+        const mainframe=catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase()===wanted)
+          || catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase().includes(wanted));
         const result=await engine.analyze(currentParse,mainframe,
-          {trials:5000,turns:Number($('turns').value),ram_target:$('ramTarget').value},status);
+          {trials:5000,turns,ram_target:$('ramTarget').value},status);
         render(result);
       } catch(error) {$('status').hidden=true;showError(error.message);}
       updateDeckCount();
@@ -435,8 +502,8 @@
     document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.info-wrap.open').forEach(item=>{item.classList.remove('open');item.querySelector('.info-button').setAttribute('aria-expanded','false');});});
     if (!catalog || !engine) showError('The local catalog or calculator script did not load. Keep index.html, catalog.js, engine.js, app.js, and the assets folder together.');
     else {
-      $('mainframe').innerHTML=catalog.cards.filter(card=>card.type==='MAINFRAME')
-        .map(card=>`<option value="${esc(card.name)}">${esc(card.name)}</option>`).join('');
+      const mainframes=catalog.cards.filter(card=>card.type==='MAINFRAME').map(card=>card.name);
+      initMainframeCombo(mainframes);
       $('mainframe').value=catalog.example_mainframe;
       updateDeckCount();
     }
