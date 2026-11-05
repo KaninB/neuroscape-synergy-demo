@@ -56,7 +56,7 @@ function stubElement(tag = 'div') {
 }
 
 const hosts = {};
-const get = id => hosts[id] || (hosts[id] = stubElement(id === 'mainframe' || id === 'turns' || id === 'extraTurns' || id === 'milestoneTurn' ? 'input' : 'div'));
+const get = id => hosts[id] || (hosts[id] = stubElement(id === 'mainframe' || id === 'turns' || id === 'milestoneTurn' ? 'input' : 'div'));
 get('mainframe').closest = sel => (sel === '.info-wrap' ? null : null);
 
 global.document = {

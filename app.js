@@ -141,8 +141,9 @@
           tip.innerHTML = `<b>Turn ${turn} · going ${positionView === 'first' ? 'first' : 'second'}</b>` +
             tipRows.map(({tier, series}) => {
               const row = series.find(x => x.turn === turn);
+              const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
               return `<div class="row"><span><span style="color:${colors[(tier-1)%colors.length]}">■</span> Tier ${tier}</span>`+
-                `<span>${pct(row.probability)} <span class="dim">(${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)})</span></span></div>`;
+                `<span>${pct(row.probability)} <span class="dim">± ${(100 * se).toFixed(1)}%</span></span></div>`;
             }).join('');
           tip.style.display = 'block';
           const hostRect = curveHost.getBoundingClientRect();
@@ -176,10 +177,11 @@
           if (!row) return '';
           const key = (pos === 'first' ? 'F' : 'S') + '-' + tier;
           const name = pos === 'first' ? 'first' : 'second';
-          return `<div class="chip" title="Tier ${tier} by turn ${turn}, going ${name}: ${pct(row.probability)} — Wilson 95% range ${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}, from ${row.trials.toLocaleString()} simulated games">`+
+          const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
+          return `<div class="chip" title="Tier ${tier} by turn ${turn}, going ${name}: ${pct(row.probability)} ± ${(100 * se).toFixed(1)}% (standard error), from ${row.trials.toLocaleString()} simulated games">`+
             `<span class="k">${key} · by turn ${turn}</span>`+
             `<span class="v" style="color:${colors[(tier-1)%colors.length]}">${pct(row.probability)}</span>`+
-            `<span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span></div>`;
+            `<span class="ci">± ${(100 * se).toFixed(1)}%</span></div>`;
         })).join('');
       }
       $('milestoneTurn').addEventListener('input', renderChips);
@@ -380,9 +382,7 @@
       $('phase').textContent='Validating decklist'; $('progressFill').style.width='0%'; $('progressText').textContent='';
       try {
         updateDeckCount();
-        const extra = Math.max(0, Math.min(34, Math.round(Number($('extraTurns').value) || 0)));
-        const horizon = Math.max(1, Math.min(40, Math.round(Number($('turns').value) || 6)));
-        const turns = Math.max(1, Math.min(40, horizon + extra));
+        const turns = Math.max(1, Math.min(40, Math.round(Number($('turns').value) || 6)));
         const wanted=$('mainframe').value.trim().toLowerCase();
         const mainframe=catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase()===wanted)
           || catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase().includes(wanted));

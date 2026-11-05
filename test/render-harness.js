@@ -35,11 +35,10 @@ function stubElement(tag = 'div') {
 const hosts = {};
 function get(id) {
   if (!hosts[id]) {
-    hosts[id] = stubElement(id === 'milestoneTurn' || id === 'cardsSeen' || id === 'turns' || id === 'extraTurns' || id === 'mainframe' ? 'input' : 'div');
+    hosts[id] = stubElement(id === 'milestoneTurn' || id === 'cardsSeen' || id === 'turns' || id === 'mainframe' ? 'input' : 'div');
     if (id === 'milestoneTurn') hosts[id].value = '8';
     if (id === 'cardsSeen') hosts[id].value = '12';
     if (id === 'turns') hosts[id].value = '6';
-    if (id === 'extraTurns') hosts[id].value = '0';
   }
   return hosts[id];
 }

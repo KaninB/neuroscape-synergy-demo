@@ -209,12 +209,9 @@
       <div class="label-row"><label for="decklist">Decklist</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Decklist" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Only Cyberdeck cards enter the calculation. Mainframe, sideboard, and RAM sections are excluded from the Cyberdeck count.</span></span></div>
       <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
       <div id="deckCount" class="countbox" aria-live="polite"><strong>0 cyberdeck cards</strong><small>Paste a list or upload an export to count its cards.</small></div>
-      <div class="label-row"><label for="turns">Turn horizon</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About turn horizon" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How many of your own turns the simulated games run. Curves, chips, and the milestone picker all stop at this turn.</span></span></div>
-      <div class="stepper"><button class="step-btn minus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Decrease turn horizon">−</button><input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="6" aria-describedby="turnsHelp"><button class="step-btn plus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Increase turn horizon">+</button></div>
-      <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached by your own turn, up to this horizon.</p>
-      <div class="label-row"><label for="extraTurns">Extra turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About extra turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">Extends the horizon for slower decks: curves run the horizon plus this many additional own turns. Leave at 0 to keep the default window.</span></span></div>
-      <div class="stepper"><button class="step-btn minus" type="button" data-for="extraTurns" data-min="0" data-max="34" aria-label="Decrease extra turns">−</button><input id="extraTurns" type="number" inputmode="numeric" min="0" max="34" step="1" value="0" aria-describedby="extraTurnsHelp"><button class="step-btn plus" type="button" data-for="extraTurns" data-min="0" data-max="34" aria-label="Increase extra turns">+</button></div>
-      <p id="extraTurnsHelp" class="setting-explanation">Adds this many own turns on top of the horizon — for slower decks you still want to see.</p>
+      <div class="label-row"><label for="turns">Turns taken</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About turns taken" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How many of your own turns the simulated games run. Curves, chips, and the milestone picker all stop at this turn.</span></span></div>
+      <div class="stepper"><button class="step-btn minus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Decrease turns taken">−</button><input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="6" aria-describedby="turnsHelp"><button class="step-btn plus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Increase turns taken">+</button></div>
+      <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached within this many of your own turns.</p>
       <div class="label-row"><label for="ramTarget">Simulated RAM budget</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Simulated RAM budget" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How much RAM the simulated player builds each game before switching to drawing cards. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
       <select id="ramTarget"><option value="auto" selected>Chosen automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
       <p class="setting-explanation">Automatic tests several stopping points, then uses the one that reached this Mainframe's tiers earliest in pilot games.</p>
@@ -223,11 +220,11 @@
       <div class="note"><strong>Structural model.</strong> Turn estimates omit printed card effects, tokens, attacks, opponent interaction, and lethal endings. The heuristic may force quit characters. Your deck stays in this browser.</div>
     </section>
     <section class="panel content-panel" aria-label="Analysis results">
+      <div id="methodology" class="callout"><strong>How this works.</strong> For any legal deck (50–255 cards) the tool simulates 5,000 structural games per position — the simulated player installs RAM, draws, deploys characters and gear, and clicks each Mainframe tier the moment its printed requirement is on the table. Every percent on a curve is the share of those games where the tier first came online by that turn (± standard error on hover). The opening-hand figures are exact combinatorics, not simulation. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings — treat the curves as honest estimates of deck structure, not a crystal ball.<details><summary>Formulas</summary><div class="formula">P(reached by turn t) ~ simulated games with first hit by t / trials<br>standard error = √(p(1−p)/n)<br>Opening-hand mean = 5 × sources / deck size; qualify share is exact without-replacement math</div></details></div>
       <div id="placeholder" class="empty"><img src="assets/favicon.svg" alt=""><strong>Your curves will appear here</strong><p>Upload an export, load the example, or paste a legal 50-255-card Cyberdeck.</p></div>
       <div id="status" class="status" aria-live="polite" hidden><strong id="phase">Waiting</strong><div class="progress"><div id="progressFill"></div></div><span id="progressText" class="hint"></span></div>
       <div id="results" hidden>
         <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><div><button type="button" class="secondary" id="csvDownload">Download turn table (CSV)</button> <button type="button" class="secondary" id="download">Download JSON</button></div></div>
-        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn curves come from n simulated structural games per position — the percent is the share of games where the tier first came online by that turn (Wilson 95% range on hover, and in the CSV). Opening-hand and RAM figures come from the same games; the model omits card effects, tokens, attacks, opponent interaction, and lethal endings.<details><summary>Formulas</summary><div class="formula">P(reached by turn t) ~ simulated games with first hit by t / trials<br>Opening-hand mean = 5 × sources / deck size; qualify share is exact without-replacement math</div></details></div>
         <div id="verdict" class="verdict"></div>
         <div id="warnings" class="note"></div>
         <div class="section"><h2>What is in this deck?</h2><div id="composition"></div></div>
@@ -240,7 +237,7 @@
           <div class="chart-box"><div id="curveChart"></div></div>
           <div class="turn-picker"><label for="milestoneTurn"><strong>At turn</strong></label>
             <div class="stepper"><button class="step-btn minus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Decrease turn">−</button><input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="6" aria-describedby="milestoneHelp"><button class="step-btn plus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Increase turn">+</button></div>
-            <span id="milestoneHelp" class="hint">F = going <b>F</b>irst · S = going <b>S</b>econd · number = tier. Hover a chip for its Wilson range.</span></div>
+            <span id="milestoneHelp" class="hint">F = going <b>F</b>irst · S = going <b>S</b>econd · number = tier. Hover a chip for its standard error.</span></div>
           <div id="milestoneChips" class="chips"></div></div>
         <div class="section"><h2>Why — the deck and the draw</h2>
           <h3>Opening hand (5 cards)</h3>
@@ -253,6 +250,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261105-1"></script><script src="engine.js?v=20261105-1"></script><script src="app.js?v=20261105-1"></script>
+  <script src="catalog.js?v=20261105-2"></script><script src="engine.js?v=20261105-2"></script><script src="app.js?v=20261105-2"></script>
 </body>
 </html>
