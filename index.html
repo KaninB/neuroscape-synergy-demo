@@ -84,6 +84,18 @@
     .turn-picker { display:flex; align-items:center; gap:10px; margin:12px 0 8px; flex-wrap:wrap; }
     .turn-picker label { margin:0; }
     .turn-picker input { width:92px; }
+    /* Custom stepper: hides native spinners, flanking − / + buttons instead */
+    .stepper { display:inline-flex; align-items:stretch; }
+    .stepper input { width:74px; text-align:center; border-radius:0; -moz-appearance:textfield; }
+    .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+    .stepper .step-btn { flex:0 0 auto; width:40px; display:flex; align-items:center; justify-content:center;
+      background:var(--raised); color:var(--text); border:1px solid #5b6871; cursor:pointer;
+      font:700 17px/1 "Courier New",monospace; padding:0; user-select:none; }
+    .stepper .step-btn.minus { border-radius:4px 0 0 4px; border-right:0; }
+    .stepper .step-btn.plus { border-radius:0 4px 4px 0; border-left:0; }
+    .stepper .step-btn:hover { background:#3E454B; }
+    .stepper .step-btn:focus-visible { outline:3px solid var(--action); outline-offset:-3px; }
+    .stepper .step-btn:active { background:var(--action); color:var(--action-ink); }
     .status { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:18px; margin:10px 0; }
     .progress { height:11px; border-radius:99px; background:#1b2023; overflow:hidden; margin:12px 0 5px; }
     .progress > div { height:100%; width:0%; background:var(--action); transition:width .25s; }
@@ -93,6 +105,21 @@
     .segmented button + button { border-left:1px solid var(--line); }
     .segmented button.on { background:var(--action); color:var(--action-ink); }
     .segmented button:hover:not(.on) { background:#414a51; color:var(--text); }
+    .verdict { display:flex; gap:12px; flex-wrap:wrap; margin:15px 0; }
+    .verdict .card { flex:1 1 200px; background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:12px 14px; }
+    .verdict b { display:block; font:700 24px/1.2 "Courier New",ui-monospace,monospace; margin:3px 0; }
+    .verdict small { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.12em; font-family:Arial,Helvetica,sans-serif; }
+    .verdict .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+    .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px; }
+    .chip { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:8px 12px; min-width:120px; }
+    .chip .k { display:block; font:11px Arial,Helvetica,sans-serif; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
+    .chip .v { font:700 18px/1.3 "Courier New",ui-monospace,monospace; }
+    .chip .ci { display:block; color:var(--muted); font-size:10.5px; font-family:"Courier New",ui-monospace,monospace; }
+    .src-line { margin:8px 0 2px; font-size:13.5px; }
+    .src-line .req { color:var(--muted); }
+    .hand-line { margin:8px 0; font-size:14px; }
+    .hand-line .big { font:700 17px "Courier New",ui-monospace,monospace; }
+    .quit-line { margin-top:16px; font-size:13px; color:var(--muted); border-top:1px dashed var(--line); padding-top:12px; }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin:15px 0; }
     .stat { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:12px; }
     .stat b { display:block; font:700 20px/1.2 "Courier New",ui-monospace,monospace; }
@@ -100,7 +127,9 @@
     .chart-host { position:relative; }
     .chart-tip { position:absolute; z-index:6; pointer-events:none; background:#101315; border:1px solid var(--action);
       border-radius:4px; padding:7px 10px; font:11px/1.5 Verdana,sans-serif; color:var(--text);
-      white-space:nowrap; box-shadow:0 8px 22px #0009; }
+      box-shadow:0 8px 22px #0009; }
+    .chart-tip .row { display:flex; justify-content:space-between; gap:14px; margin-top:3px; }
+    .chart-tip .dim { color:var(--muted); }
     .table-scroll td b { font-weight:700; }
     .table-scroll td { vertical-align:top; }
     .table-scroll .ci { display:block; color:var(--muted); font-size:9px; margin-top:2px; }
@@ -137,7 +166,7 @@
       .header-badge { grid-column:1/-1; } main { grid-template-columns:1fr; } .input-panel { position:static; } }
     @media (max-width:650px) { .header-inner { display:block; padding:24px 18px 26px; } .site-mark { width:56px; height:56px; margin-bottom:10px; }
       .header-badge { margin-top:18px; } main { padding:0 12px; margin-top:14px; } .content-panel,.input-panel { padding:16px; }
-      .grid-2 { grid-template-columns:1fr; } .stat-grid { grid-template-columns:repeat(2,1fr); } .row { display:block; }
+      .grid-2 { grid-template-columns:1fr; } .stat-grid { grid-template-columns:repeat(2,1fr); } .row { display:block; } .verdict { flex-direction:column; }
       .section-head { display:block; } .section-head button { margin:0 0 12px; } }
   </style>
 </head>
@@ -154,13 +183,13 @@
     <section class="panel input-panel" aria-label="Decklist input">
       <h2>Your deck</h2>
       <div class="upload-block">
-        <div class="upload-head"><strong>Import a decklist</strong><span class="hint">.txt / .csv / .md or a link</span></div>
-        <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload deck export" aria-describedby="uploadHelp">
+        <div class="upload-head"><strong>Import a decklist</strong><span class="hint">paste a link, or choose a file (.txt / .csv / .md)</span></div>
         <div class="link-import">
-          <input id="decklink" type="url" inputmode="url" placeholder="https:// link to a decklist" aria-label="Link to a decklist">
-          <button class="secondary" type="button" id="importLink">Import link</button>
+          <input id="decklink" type="url" inputmode="url" placeholder="Paste a https:// deck link…" aria-label="Deck link, or use the Import button to choose a file instead">
+          <button class="secondary" type="button" id="importLink">Import</button>
         </div>
-        <p id="uploadHelp" class="hint">Files and links are read into the editable decklist field below. Your deck stays in this browser — importing a link only fetches it from the site that hosts it.</p>
+        <input id="deckfile" type="file" accept=".txt,.csv,.md,text/plain,text/csv,text/markdown" aria-label="Upload deck export" aria-describedby="uploadHelp" hidden>
+        <p id="uploadHelp" class="hint">One field, two ways in: paste a deck <b>link</b> and press Import (or Enter), or leave it empty and press Import to <b>choose a file</b> (.txt / .csv / .md). Either way the list lands in the editable decklist field below. Your deck stays in this browser — importing a link only fetches it from the site that hosts it.</p>
         <div class="inline-actions"><button class="secondary" type="button" id="example">Load 50-card example</button></div>
         <div id="fileError" class="error file-error" hidden></div>
       </div>
@@ -170,7 +199,7 @@
       <textarea id="decklist" spellcheck="false" placeholder="4 CARD NAME&#10;3 ANOTHER CARD&#10;1 GEN-123"></textarea>
       <div id="deckCount" class="countbox" aria-live="polite"><strong>0 cyberdeck cards</strong><small>Paste a list or upload an export to count its cards.</small></div>
       <div class="label-row"><label for="turns">Max turns</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About max turns" aria-expanded="false">i</button><span class="info-popover" role="tooltip">The last own turn displayed on the estimated turn curves. Choose 1–40; 12 matches the article horizon, 20–40 reveals slower decks.</span></span></div>
-      <input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="12" aria-describedby="turnsHelp">
+      <div class="stepper"><button class="step-btn minus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Decrease max turns">−</button><input id="turns" type="number" inputmode="numeric" min="1" max="40" step="1" value="12" aria-describedby="turnsHelp"><button class="step-btn plus" type="button" data-for="turns" data-min="1" data-max="40" aria-label="Increase max turns">+</button></div>
       <p id="turnsHelp" class="setting-explanation">Curves show the chance each tier is reached by your own turn, up to this maximum.</p>
       <div class="label-row"><label for="ramTarget">Installed RAM strategy</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Installed RAM strategy" aria-expanded="false">i</button><span class="info-popover" role="tooltip">This is where the simulated player stops installing RAM and starts prioritizing card draws. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
       <select id="ramTarget"><option value="auto" selected>Choose automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
@@ -183,33 +212,33 @@
       <div id="placeholder" class="empty"><img src="assets/favicon.svg" alt=""><strong>Your curves will appear here</strong><p>Upload an export, load the example, or paste a legal 50-255-card Cyberdeck.</p></div>
       <div id="status" class="status" aria-live="polite" hidden><strong id="phase">Waiting</strong><div class="progress"><div id="progressFill"></div></div><span id="progressText" class="hint"></span></div>
       <div id="results" hidden>
-        <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><button type="button" class="secondary" id="download">Download JSON</button></div>
-        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> <b>Played out</b> columns come from n = 5,000 simulated structural games per position — the percent is the share of games where the tier first came online by that turn, with its Wilson 95% interval underneath. <b>On paper</b> columns are exact without-replacement draw math: qualifying h-card combinations over C(deck size, h). The simulator observes the hand but never the future deck order; automatic RAM targets are chosen on separate pilot shuffles. The model omits card effects, tokens, attacks, opponent interaction, and lethal endings; dual-faction cards supply both icons but only one board object.<details><summary>Formulas</summary><div class="formula">P(draw requirement | h seen) = qualifying h-card combinations / C(deck size, h)<br>P(reached by turn t) ~ simulated games with first hit by t / trials</div></details></div>
-        <div id="stats" class="stat-grid"></div>
+        <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><div><button type="button" class="secondary" id="csvDownload">Download turn table (CSV)</button> <button type="button" class="secondary" id="download">Download JSON</button></div></div>
+        <div id="methodology" class="callout"><strong>How the numbers are calculated.</strong> Turn curves come from n simulated structural games per position — the percent is the share of games where the tier first came online by that turn (Wilson 95% range on hover, and in the CSV). Opening-hand and RAM figures come from the same games; the model omits card effects, tokens, attacks, opponent interaction, and lethal endings.<details><summary>Formulas</summary><div class="formula">P(reached by turn t) ~ simulated games with first hit by t / trials<br>Opening-hand mean = 5 × sources / deck size; qualify share is exact without-replacement math</div></details></div>
+        <div id="verdict" class="verdict"></div>
         <div id="warnings" class="note"></div>
-        <div class="section"><h2>Played out — when tiers come online</h2><p class="hint">Estimated from n = 5,000 simulated games per position (Wilson 95% intervals shown). A tier stays counted after its first hit, even if a later force quit removes its sources.</p>
-          <div class="segmented" id="positionToggle" role="group" aria-label="Which position's charts to show">
-            <button type="button" data-pos="both" class="on" aria-pressed="true">Both</button>
-            <button type="button" data-pos="first" aria-pressed="false">Going 1st</button>
-            <button type="button" data-pos="second" aria-pressed="false">Going 2nd</button>
+        <div class="section"><h2>What is in this deck?</h2><div id="composition"></div></div>
+        <div class="section"><h2>Played out — when tiers come online</h2>
+          <div class="segmented" id="positionToggle" role="group" aria-label="Which position to chart">
+            <button type="button" data-pos="first" class="on" aria-pressed="true">Going first</button>
+            <button type="button" data-pos="second" aria-pressed="false">Going second</button>
           </div>
-          <div class="grid-2" id="turnCharts"><div class="chart-box" id="firstBox"><h3>Going first</h3><div id="firstChart"></div></div><div class="chart-box" id="secondBox"><h3>Going second</h3><div id="secondChart"></div></div></div>
-          <div id="turnLegend" class="legend"></div>
-          <div class="turn-picker"><label for="milestoneTurn">Typical-turn baseline</label>
-            <input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="8" aria-describedby="milestoneHelp">
-            <span id="milestoneHelp" class="hint">Adds a highlighted custom-turn column to the table below.</span></div>
-          <div id="milestoneTable" class="table-scroll"></div></div>
-        <div class="section"><h2>On paper — is the tier in the deck?</h2><p class="hint">Exact probabilities after <em>h random cards seen</em> — deck composition only, no play pattern. Roughly h ≈ 5 + 2 × (turn − 1), minus RAM installs. Draw order does not depend on who goes first, so the position toggle does not change this section.</p>
-          <div class="grid-2"><div class="chart-box"><h3>Faction icons present</h3><div id="factionChart"></div></div><div class="chart-box"><h3>Faction icons + board count present</h3><div id="jointChart"></div></div></div>
-          <div id="drawLegend" class="legend"></div><p id="drawRelationship" class="hint"></p>
-          <div class="turn-picker"><label for="cardsSeen">Custom cards-seen column</label>
-            <input id="cardsSeen" type="number" inputmode="numeric" min="5" max="20" step="1" value="12" aria-describedby="cardsSeenHelp">
-            <span id="cardsSeenHelp" class="hint">Adds a highlighted “after N seen” column; “icons” rows need only the faction icons, “full” rows also need the printed board count.</span></div>
-          <div id="drawTable" class="table-scroll"></div></div>
-        <div class="section"><h2>What is in this deck?</h2><div id="sourceSummary"></div></div>
+          <div id="sourceLines"></div>
+          <div class="chart-box"><div id="curveChart"></div></div>
+          <div class="turn-picker"><label for="milestoneTurn"><strong>At turn</strong></label>
+            <div class="stepper"><button class="step-btn minus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Decrease turn">−</button><input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="6" aria-describedby="milestoneHelp"><button class="step-btn plus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Increase turn">+</button></div>
+            <span id="milestoneHelp" class="hint">F = going <b>F</b>irst · S = going <b>S</b>econd · number = tier. Hover a chip for its Wilson range.</span></div>
+          <div id="milestoneChips" class="chips"></div></div>
+        <div class="section"><h2>Why — the deck and the draw</h2>
+          <h3>Opening hand (5 cards)</h3>
+          <div id="handLines"></div>
+          <p class="hint">Average number of qualifying source cards in a random opening 5 (± standard deviation), followed by the share of hands that already satisfy the tier's printed requirement. Exact math over every possible 5-card draw of your deck — no simulation.</p>
+          <h3>Installed RAM when the tier clicked</h3>
+          <p class="hint" id="ramNote"></p>
+          <div class="chart-box"><div id="ramChart"></div></div>
+          <div id="quitLine" class="quit-line"></div></div>
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261103-10"></script><script src="engine.js?v=20261103-10"></script><script src="app.js?v=20261103-10"></script>
+  <script src="catalog.js?v=20261104-2"></script><script src="engine.js?v=20261104-2"></script><script src="app.js?v=20261104-2"></script>
 </body>
 </html>

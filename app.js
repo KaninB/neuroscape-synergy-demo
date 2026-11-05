@@ -1,8 +1,32 @@
     const $ = id => document.getElementById(id);
+    // Custom steppers: − / + buttons flank each number input (native spinners hidden).
+    // Hold to repeat; keyboard activation (Enter/Space → click with detail 0) steps once.
+    for (const btn of document.querySelectorAll('.step-btn')) {
+      const input = $(btn.dataset.for), min = Number(btn.dataset.min), max = Number(btn.dataset.max);
+      const dir = btn.classList.contains('plus') ? 1 : -1;
+      const apply = () => {
+        const current = Number(input.value);
+        const base = Number.isFinite(current) ? current : min;
+        const next = Math.min(max, Math.max(min, base + dir));
+        if (next !== base || input.value === '') {
+          input.value = next;
+          input.dispatchEvent(new Event('input', {bubbles:true}));
+        }
+      };
+      let timer = null, repeat = null;
+      const stop = () => { clearTimeout(timer); clearInterval(repeat); timer = repeat = null; };
+      btn.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        apply();
+        timer = setTimeout(() => { repeat = setInterval(apply, 90); }, 420);
+      });
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+      btn.addEventListener('click', event => { if (event.detail === 0) apply(); });
+    }
     const colors = ['#24C8A5','#E25C8D','#F4B942','#8B7CF6','#56B4E9','#F0785A'];
     const lineStyles = ['', '8 5', '2 4', '', '8 5', '2 4'];
-    const TURN_LANDMARKS = [1,2,3,4,5,6,8,10,12,16,20,24,28,32,36,40];
-    const SEEN_LANDMARKS = [5,6,8,10,12,15,20];
     const chartRedraws = [];
     const catalog = globalThis.NEUROSCAPE_CATALOG;
     const engine = globalThis.NEUROSCAPE_ENGINE;
@@ -15,117 +39,14 @@
       if (text) el.textContent = text;
       return el;
     }
-    function chart(hostId, rows, xKey, yKey, xMin, xMax, xLabel, seriesLabel) {
-      const host = $(hostId); host.style.position = 'relative';
-      const drawChart = () => {
-        host.replaceChildren();
-        const tall = host.clientWidth > 0 && host.clientWidth < 430;
-        const w = tall ? 340 : 570, h = tall ? 430 : 345, l = tall ? 47 : 53, r = 14, t = 18, b = 45, fs = tall ? 13 : 12;
-        const sx = x => l + (x - xMin) / Math.max(1, xMax - xMin) * (w - l - r);
-        const sy = y => t + (1 - y) * (h - t - b);
-        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
-          'aria-label':`${xLabel} synergy probability chart`});
-        for (const value of [0,.25,.5,.75,1]) {
-          svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
-          svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${value*100}%`));
-        }
-        const stride = xLabel === 'Own turn' ? (xMax > 16 ? 4 : xMax > 8 ? 2 : 1) : 5;
-        const ticks = [];
-        for (let x = xMin; x <= xMax; x += stride) ticks.push(x);
-        if (ticks[ticks.length-1] !== xMax && xMax - ticks[ticks.length-1] < stride/2) ticks[ticks.length-1] = xMax;
-        for (const value of ticks) {
-          svg.append(svgNode('line',{x1:sx(value),y1:h-b,x2:sx(value),y2:h-b+5,stroke:'#7B8992'}));
-          svg.append(svgNode('text',{x:sx(value),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(value)));
-        }
-        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},xLabel));
-        const ordered = rows.slice().sort((a,b)=>a[xKey]-b[xKey]);
-        const points = [];
-        for (const tier of [...new Set(ordered.map(row=>row.tier))].sort((a,b)=>a-b)) {
-          const color = colors[(tier-1)%colors.length];
-          const series = ordered.filter(row=>row.tier===tier);
-          if (!series.length) continue;
-          const parts = [`M ${sx(series[0][xKey])} ${sy(series[0][yKey])}`];
-          for (let i=1;i<series.length;i++) parts.push(`H ${sx(series[i][xKey])} V ${sy(series[i][yKey])}`);
-          svg.append(svgNode('path',{d:parts.join(' '),fill:'none',stroke:color,
-            'stroke-width':3,'stroke-linejoin':'round'}));
-          for (const row of series) {
-            const circle = svgNode('circle',{cx:sx(row[xKey]),cy:sy(row[yKey]),r:2.6,fill:color});
-            svg.append(circle);
-            points.push({px:sx(row[xKey]),py:sy(row[yKey]),x:row[xKey],y:row[yKey],circle,label:seriesLabel(row)});
-          }
-        }
-        host.append(svg);
-        const tip = document.createElement('div');
-        tip.className = 'chart-tip';
-        tip.style.display = 'none';
-        host.append(tip);
-        svg.addEventListener('pointermove', event => {
-          const rect = svg.getBoundingClientRect();
-          const mx = (event.clientX - rect.left) * w / rect.width;
-          const my = (event.clientY - rect.top) * h / rect.height;
-          let best = null, bestD = Infinity;
-          for (const p of points) {
-            const d = (p.px - mx) ** 2 + (p.py - my) ** 2;
-            if (d < bestD) { bestD = d; best = p; }
-          }
-          if (!best) return;
-          for (const p of points) p.circle.setAttribute('r', p === best ? 5.4 : 2.6);
-          tip.innerHTML = `<b>${esc(best.label)}</b><br>${esc(xLabel)} ${best.x}: ${pct(best.y)}`;
-          tip.style.display = 'block';
-          const hostRect = host.getBoundingClientRect();
-          let tx = event.clientX - hostRect.left + 13;
-          if (tx + 190 > hostRect.width) tx -= 210;
-          tip.style.left = Math.max(0, tx) + 'px';
-          tip.style.top = Math.max(0, event.clientY - hostRect.top - 14) + 'px';
-        });
-        svg.addEventListener('pointerleave', () => {
-          tip.style.display = 'none';
-          for (const p of points) p.circle.setAttribute('r', 2.6);
-        });
-      };
-      drawChart();
-      chartRedraws.push(drawChart);
-    }
-    function legend(hostId, tiers) {
-      $(hostId).innerHTML = tiers.map((tier,i)=>`<span><svg viewBox="0 0 38 8" aria-hidden="true"><line x1="1" y1="4" x2="37" y2="4" stroke="${colors[i%colors.length]}" stroke-width="3" stroke-dasharray="${lineStyles[i%lineStyles.length]}"/></svg><b>T${tier.tier}</b> = Tier ${tier.tier} · ${tier.board_requirement} board; ${Object.entries(tier.faction_requirements).map(([f,n])=>`${n} ${f}`).join(' + ')}</span>`).join('')+
-        `<span><b>1st / 2nd</b> = going first / going second</span>`;
-    }
-    function table(headers, rows) {
-      const cell = value => {
-        if (value !== null && typeof value === 'object' && 'html' in value)
-          return value.picked ? `<td class="picked">${value.html}</td>` : `<td>${value.html}</td>`;
-        return `<td>${esc(value)}</td>`;
-      };
-      const header = h => h !== null && typeof h === 'object' && 'html' in h ? h.html : esc(h);
-      return `<table><thead><tr>${headers.map(header).join('')}</tr></thead><tbody>`+
-        rows.map(row=>{
-          const cls = row && row.rowClass ? ` class="${esc(row.rowClass)}"` : '';
-          const cells = row && row.cells ? row.cells : row;
-          return `<tr${cls}>${cells.map(cell).join('')}</tr>`;
-        }).join('')+'</tbody></table>';
-    }
     function render(result) {
       latest = result; $('placeholder').hidden = true; $('status').hidden = true; $('results').hidden = false;
       const mf = result.mainframe, tiers = mf.tiers, curves = result.curves, draw = result.draw_only;
+      const tierNums = tiers.map(tier => tier.tier);
+      const trials = result.settings.trials_per_position, maxTurn = result.settings.turns;
+      let positionView = 'first';
       $('resultTitle').textContent = `${mf.name} · ${result.deck_size} cards`;
-      $('resultSubtitle').textContent = `n = ${result.settings.trials_per_position.toLocaleString()} simulated games per position · max turn ${result.settings.turns} · RAM budget ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
-      const high = tiers.at(-1), source = result.source_summary_by_tier[String(high.tier)];
-      $('stats').innerHTML = `<div class="stat"><b>${result.deck_size}</b><small>Cyberdeck cards</small></div>`+
-        `<div class="stat"><b>${source.source_cards}</b><small>High-tier faction sources</small></div>`+
-        `<div class="stat"><b>${pct(source.source_fraction)}</b><small>Source density</small></div>`+
-        `<div class="stat"><b>${result.settings.ram_target}</b><small>Selected RAM target</small></div>`;
-      chart('firstChart',curves.filter(r=>r.position==='first'),'turn','probability',1,result.settings.turns,'Own turn',
-        row=>`Tier ${row.tier} · going first`);
-      chart('secondChart',curves.filter(r=>r.position==='second'),'turn','probability',1,result.settings.turns,'Own turn',
-        row=>`Tier ${row.tier} · going second`);
-      chart('factionChart',draw,'cards_seen','faction_only_probability',5,20,'Random cards seen',
-        row=>`Tier ${row.tier} · faction icons present`);
-      chart('jointChart',draw,'cards_seen','joint_threshold_probability',5,20,'Random cards seen',
-        row=>`Tier ${row.tier} · icons + board count`);
-      legend('turnLegend',tiers); legend('drawLegend',tiers);
-      $('drawRelationship').textContent=draw.every(row=>Math.abs(row.faction_only_probability-row.joint_threshold_probability)<1e-12) ?
-        'The exact panels coincide for this deck: seeing the required persistent faction sources already supplies the printed board count.' :
-        'The gap between these panels is the extra printed board-count constraint in a random sample.';
+      $('resultSubtitle').textContent = `n = ${trials.toLocaleString()} simulated games per position · max turn ${maxTurn} · RAM budget ${result.settings.ram_target} (${result.settings.ram_target_selection})`;
       function medianFirstHit(tier, position) {
         const rows = curves.filter(r => r.tier === tier && r.position === position).sort((a,b) => a.turn - b.turn);
         const firstTurns = [];
@@ -134,81 +55,215 @@
           if (r.reached_count > previous) firstTurns.push(...Array(r.reached_count - previous).fill(r.turn));
           previous = Math.max(previous, r.reached_count);
         }
-        return firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : '—';
+        return firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : null;
       }
-      let positionView = 'both';
-      const applyPositionView = () => {
-        $('firstBox').hidden = positionView === 'second';
-        $('secondBox').hidden = positionView === 'first';
-        for (const b of document.querySelectorAll('#positionToggle button')) {
-          const on = b.dataset.pos === positionView;
-          b.classList.toggle('on', on);
-          b.setAttribute('aria-pressed', String(on));
-        }
-        renderMilestones();
-        requestAnimationFrame(() => { for (const redraw of chartRedraws) redraw(); });
-      };
-      for (const b of document.querySelectorAll('#positionToggle button'))
-        b.addEventListener('click', () => { positionView = b.dataset.pos; applyPositionView(); });
-      function renderMilestones() {
-        const value = Math.max(1, Math.round(Number($('milestoneTurn').value) || 8));
-        const shown = Math.min(value, result.settings.turns);
-        const landmarkTurns = TURN_LANDMARKS.filter(t => t <= result.settings.turns && t !== shown);
-        const turns = [...landmarkTurns, shown].sort((a,b) => a-b);
-        const mark = (row, picked) => row ?
-          {html:`<b>${pct(row.probability)}</b><span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span>`, picked} :
-          {html:'<span class="dim">—</span>', picked};
-        const cellsOf = (tier, position) => [
-          {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">${position === 'first' ? '1st' : '2nd'}</span>`},
-          ...turns.map(t => mark(curves.find(r => r.tier === tier.tier && r.position === position && r.turn === t), t === shown)),
-          {html:`turn ${medianFirstHit(tier.tier, position)}`}
-        ];
-        $('milestoneTable').innerHTML = table(
-          [{html:'<span class="tierkey">Tier · position</span>'},
-            ...turns.map(t => ({html:t === shown ? `<span class="picked">t=${t} ▾</span>` : `t=${t}`})),
-            {html:'<span class="tierkey">Typical</span>'}],
-          tiers.flatMap(tier => (positionView === 'both' ? ['first','second'] : [positionView]).map(position => ({
-            rowClass: position === 'first' ? 'pos-first' : 'pos-second',
-            cells: cellsOf(tier, position)
-          }))));
-      }
-      $('milestoneTurn').addEventListener('input', renderMilestones);
-      renderMilestones();
-      function renderDraw() {
-        const value = Math.max(5, Math.min(20, Math.round(Number($('cardsSeen').value) || 12)));
-        const seen = [...SEEN_LANDMARKS.filter(h => h !== value), value].sort((a,b) => a-b);
-        const mark = (v, tip, picked) => ({html:`<span title="${tip}"><b>${pct(v)}</b></span>`, picked});
-        const cell = (tier, key, h) => h === value ?
-          mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h)[key], `${key === 'faction_only_probability' ? 'Faction icons present' : 'Faction icons + board count'} (your pick)`, true) :
-          mark(draw.find(r => r.tier === tier.tier && r.cards_seen === h)[key], key === 'faction_only_probability' ? 'Faction icons present' : 'Faction icons + board count', false);
-        $('drawTable').innerHTML = table(
-          [{html:'<span class="tierkey">Tier · condition</span>'},
-            ...seen.map(h => ({html:h === value ? `<span class="picked">${h} seen ▾</span>` : `${h} seen`})),
-            {html:'<span class="tierkey">Condition</span>'}],
-          tiers.flatMap(tier => [
-            {cells: [
-              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">icons</span>`},
-              ...seen.map(h => cell(tier, 'faction_only_probability', h)),
-              {html:'faction icons present'}
-            ], rowClass: 'pos-first'},
-            {cells: [
-              {html:`<span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span><b>T${tier.tier}</b> <span class="hint">full</span>`},
-              ...seen.map(h => cell(tier, 'joint_threshold_probability', h)),
-              {html:'icons + board count'}
-            ], rowClass: 'pos-second'}
-          ]));
-      }
-      $('cardsSeen').addEventListener('input', renderDraw);
-      renderDraw();
-      $('sourceSummary').innerHTML = tiers.map(tier=>{const s=result.source_summary_by_tier[String(tier.tier)];
+      // --- verdict strip: when each tier typically comes online ---
+      $('verdict').innerHTML = tiers.map(tier => {
+        const m1 = medianFirstHit(tier.tier,'first'), m2 = medianFirstHit(tier.tier,'second');
+        const fmt = m => m === null ? 'not reached' : `turn ${m}`;
+        return `<div class="card"><small><span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span>Tier ${tier.tier} · typically online</small>`+
+          `<b>${esc(fmt(m1))}</b><small>going first · ${esc(fmt(m2))} going second</small></div>`;
+      }).join('');
+      // --- composition (moved to top) ---
+      const highTier = result.source_summary_by_tier[String(tiers.at(-1).tier)];
+      $('composition').innerHTML = tiers.map(tier=>{const s=result.source_summary_by_tier[String(tier.tier)];
         const overlap=Object.keys(tier.faction_requirements).length>1 ?
           ` ${s.multi_required_faction_sources} cards carry both required factions.` : '';
         return `<p><strong>Tier ${tier.tier}:</strong> ${s.source_cards} qualifying persistent cards (${pct(s.source_fraction)} of the deck); `+
           `${Object.entries(s.icons_by_faction).map(([f,n])=>`${n} ${esc(f)} icons`).join(', ')}.${overlap}</p>`;
       }).join('')+`<p><strong>High-tier sources by RAM cost:</strong> `+
-        Object.entries(source.source_by_ram_cost).map(([cost,n])=>`<span class="pill">Cost ${esc(cost)}: ${n}</span>`).join('')+`</p>`+
-        `<p class="hint">${source.persistent_cards} non-RAM persistents; ${source.script_cards} scripts. Source types: `+
-        Object.entries(source.source_by_type).map(([type,n])=>`${n} ${esc(type.toLowerCase())}`).join(', ')+`.</p>`;
+        Object.entries(highTier.source_by_ram_cost).map(([cost,n])=>`<span class="pill">Cost ${esc(cost)}: ${n}</span>`).join('')+`</p>`+
+        `<p class="hint">${highTier.persistent_cards} non-RAM persistents; ${highTier.script_cards} scripts. Source types: `+
+        Object.entries(highTier.source_by_type).map(([type,n])=>`${n} ${esc(type.toLowerCase())}`).join(', ')+`.</p>`;
+      // --- source-count lines above the curve chart ---
+      $('sourceLines').innerHTML = tiers.map(tier => {
+        const s = result.source_summary_by_tier[String(tier.tier)];
+        const need = Object.entries(tier.faction_requirements).map(([f,n]) => `${n} ${f.toLowerCase()}`).join(' + ');
+        const have = Object.entries(s.icons_by_faction).map(([f,n]) => `${n} ${f.toLowerCase()}`).join(', ');
+        return `<p class="src-line"><b>Tier ${tier.tier}</b> needs <span class="req">${esc(need)} icons + ${tier.board_requirement} board</span> — deck carries <b>${esc(have)}</b> on ${s.source_cards} persistent sources (${pct(s.source_fraction)} of the deck).</p>`;
+      }).join('');
+      // --- cumulative curve chart: one chart, Going first / Going second toggle ---
+      const curveHost = $('curveChart');
+      const drawCurve = () => {
+        curveHost.replaceChildren();
+        const tall = curveHost.clientWidth > 0 && curveHost.clientWidth < 430;
+        const w = tall ? 340 : 960, h = tall ? 430 : 380, l = tall ? 47 : 58, r = tall ? 16 : 96, t = 16, b = 46;
+        const fs = tall ? 13 : 12;
+        const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
+        const sy = y => t + (1 - y) * (h - t - b);
+        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
+          'aria-label':`Cumulative probability each tier is online, by own turn, going ${positionView === 'first' ? 'first' : 'second'}`});
+        for (const value of [0,.25,.5,.75,1]) {
+          svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
+          svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${value*100}%`));
+        }
+        const stride = maxTurn > 16 ? 4 : maxTurn > 8 ? 2 : 1;
+        for (let x = 1; x <= maxTurn; x += stride) {
+          svg.append(svgNode('line',{x1:sx(x),y1:h-b,x2:sx(x),y2:h-b+5,stroke:'#7B8992'}));
+          svg.append(svgNode('text',{x:sx(x),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(x)));
+        }
+        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},'Own turn'));
+        const tipRows = [];
+        for (const tier of tierNums) {
+          const series = curves.filter(r2 => r2.tier === tier && r2.position === positionView).sort((a,b2) => a.turn - b2.turn);
+          if (!series.length) continue;
+          const parts = [`M ${sx(series[0].turn)} ${sy(series[0].probability)}`];
+          for (let i = 1; i < series.length; i++)
+            parts.push(`H ${sx(series[i].turn)} V ${sy(series[i].probability)}`);
+          const pathAttrs = {d:parts.join(' '),fill:'none',stroke:colors[(tier-1)%colors.length],
+            'stroke-width':3,'stroke-linejoin':'round'};
+          const dash = lineStyles[(tier-1)%lineStyles.length];
+          if (dash) pathAttrs['stroke-dasharray'] = dash;
+          svg.append(svgNode('path',pathAttrs));
+          if (!tall) {
+            const last = series[series.length - 1], med = medianFirstHit(tier, positionView);
+            svg.append(svgNode('text',{x:sx(last.turn)+8,y:sy(last.probability)+4,'text-anchor':'start',
+              fill:colors[(tier-1)%colors.length],'font-size':fs+0.5,'font-weight':700},
+              `T${tier}${med !== null ? ' · med ' + med : ''}`));
+          }
+          for (const row of series)
+            svg.append(svgNode('circle',{cx:sx(row.turn),cy:sy(row.probability),r:2.6,fill:colors[(tier-1)%colors.length]}));
+          tipRows.push({ tier, series });
+        }
+        const cross = svgNode('line',{x1:0,y1:t,x2:0,y2:h-b,stroke:'#7B8992','stroke-dasharray':'3 3',visibility:'hidden'});
+        svg.append(cross);
+        curveHost.append(svg);
+        curveHost.style.position = 'relative';
+        const tip = document.createElement('div');
+        tip.className = 'chart-tip'; tip.style.display = 'none';
+        curveHost.append(tip);
+        svg.addEventListener('pointermove', event => {
+          const rect = svg.getBoundingClientRect();
+          const mx = (event.clientX - rect.left) * w / rect.width;
+          const turn = Math.max(1, Math.min(maxTurn, Math.round(1 + (mx - l) / Math.max(1, w - l - r) * (maxTurn - 1))));
+          cross.setAttribute('x1', sx(turn)); cross.setAttribute('x2', sx(turn));
+          cross.setAttribute('visibility','visible');
+          tip.innerHTML = `<b>Turn ${turn} · going ${positionView === 'first' ? 'first' : 'second'}</b>` +
+            tipRows.map(({tier, series}) => {
+              const row = series.find(x => x.turn === turn);
+              return `<div class="row"><span><span style="color:${colors[(tier-1)%colors.length]}">■</span> Tier ${tier}</span>`+
+                `<span>${pct(row.probability)} <span class="dim">(${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)})</span></span></div>`;
+            }).join('');
+          tip.style.display = 'block';
+          const hostRect = curveHost.getBoundingClientRect();
+          let tx = event.clientX - hostRect.left + 14;
+          if (tx + 230 > hostRect.width) tx -= 250;
+          tip.style.left = Math.max(0, tx) + 'px';
+          tip.style.top = Math.max(0, event.clientY - hostRect.top - 20) + 'px';
+        });
+        svg.addEventListener('pointerleave', () => {
+          tip.style.display = 'none'; cross.setAttribute('visibility','hidden');
+        });
+      };
+      drawCurve();
+      chartRedraws.push(drawCurve);
+      // --- position toggle (first / second only) ---
+      const applyPositionView = () => {
+        for (const b of document.querySelectorAll('#positionToggle button')) {
+          const on = b.dataset.pos === positionView;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        }
+        drawCurve(); renderRam(); renderChips();
+      };
+      for (const b of document.querySelectorAll('#positionToggle button'))
+        b.addEventListener('click', () => { positionView = b.dataset.pos; applyPositionView(); });
+      // --- milestone chips (F-1/S-1/F-2/S-2 … at a picked turn) ---
+      function renderChips() {
+        const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
+        $('milestoneChips').innerHTML = tierNums.flatMap(tier => ['first','second'].map(pos => {
+          const row = curves.find(x => x.tier === tier && x.position === pos && x.turn === turn);
+          if (!row) return '';
+          const key = (pos === 'first' ? 'F' : 'S') + '-' + tier;
+          const name = pos === 'first' ? 'first' : 'second';
+          return `<div class="chip" title="Tier ${tier} by turn ${turn}, going ${name}: ${pct(row.probability)} — Wilson 95% range ${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}, from ${row.trials.toLocaleString()} simulated games">`+
+            `<span class="k">${key} · by turn ${turn}</span>`+
+            `<span class="v" style="color:${colors[(tier-1)%colors.length]}">${pct(row.probability)}</span>`+
+            `<span class="ci">${pct(row.wilson_95_low)}–${pct(row.wilson_95_high)}</span></div>`;
+        })).join('');
+      }
+      $('milestoneTurn').addEventListener('input', renderChips);
+      renderChips();
+      // --- opening hand lines (exact hypergeometric mean/SD + exact qualify share) ---
+      const N = result.deck_size, n = 5;
+      $('handLines').innerHTML = tiers.map(tier => {
+        const s = result.source_summary_by_tier[String(tier.tier)];
+        const K = s.source_cards;
+        const mean = n * K / N;
+        const sd = Math.sqrt(n * (K/N) * (1 - K/N) * (N - n) / (N - 1));
+        const joint = draw.find(r => r.tier === tier.tier && r.cards_seen === n);
+        if (!joint) return '';
+        const need = Object.entries(tier.faction_requirements).map(([f,c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+        return `<p class="hand-line"><b>Tier ${tier.tier}</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> of the ${K} qualifying sources `+
+          `<span class="hint">(needs ${esc(need)} + ${tier.board_requirement} board)</span> — <span class="big">${pct(joint.joint_threshold_probability)}</span> of hands already qualify.</p>`;
+      }).join('');
+      // --- RAM-at-click histogram ---
+      const ramData = result.ram_to_tier || null;
+      const renderRam = () => {
+        const host = $('ramChart');
+        host.replaceChildren();
+        if (!ramData) { host.innerHTML = '<p class="hint">RAM telemetry unavailable for this run.</p>'; return; }
+        const data = tierNums.map(tier => ({ tier, bins: ramData[positionView][String(tier)] && ramData[positionView][String(tier)].installed_bins }))
+          .filter(d => d.bins);
+        const ns = tierNums.map(tier => {
+          const d = ramData[positionView][String(tier)];
+          return d ? `Tier ${tier}: n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} games` : `Tier ${tier}: never reached`;
+        }).join(' · ');
+        $('ramNote').textContent = `Share of the games that reached each tier, by how much RAM the simulated player had installed at the moment the tier clicked — going ${positionView === 'first' ? 'first' : 'second'} (${ns}). Bars are conditioned on reaching; a long right tail means the tier usually waits on expensive pieces.`;
+        if (!data.length) { host.innerHTML = '<p class="hint">No games reached any tier in this configuration.</p>'; return; }
+        const maxRam = Math.max(...data.flatMap(d => Object.keys(d.bins).map(Number)));
+        const minRam = Math.min(...data.flatMap(d => Object.keys(d.bins).map(Number)));
+        const tall = host.clientWidth > 0 && host.clientWidth < 430;
+        const w = tall ? 340 : 960, h = tall ? 380 : 300, l = tall ? 47 : 58, r = tall ? 16 : 20, t = 18, b = 46, fs = tall ? 13 : 12;
+        const sx = v => l + (v - minRam) / Math.max(1, maxRam - minRam + 1) * (w - l - r);
+        const totals = {};
+        for (const d of data) totals[d.tier] = Object.values(d.bins).reduce((a,c) => a + c, 0);
+        const maxShare = Math.max(...data.flatMap(d => Object.entries(d.bins).map(([v,c]) => c / totals[d.tier])));
+        const yMax = Math.min(1, Math.ceil(maxShare * 10) / 10 + 1e-9);
+        const sy = y => t + (1 - y / yMax) * (h - t - b);
+        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':'Installed RAM when each tier first came online'});
+        for (const v of [0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1].filter(v => v <= yMax + 1e-9)) {
+          svg.append(svgNode('line',{x1:l,y1:sy(v),x2:w-r,y2:sy(v),stroke:'#4B565E'}));
+          svg.append(svgNode('text',{x:l-8,y:sy(v)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${Math.round(v*100)}%`));
+        }
+        const groupW = (w - l - r) / (maxRam - minRam + 1);
+        const barW = Math.max(6, groupW / (data.length + 1));
+        for (let v = minRam; v <= maxRam; v++) {
+          svg.append(svgNode('text',{x:sx(v) + groupW/2,y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(v)));
+          data.forEach((d, i) => {
+            const count = d.bins[v] || 0;
+            const share = count / totals[d.tier];
+            const x = sx(v) + groupW/2 + (i - data.length/2 + .5) * barW;
+            const y = sy(share);
+            const rect = svgNode('rect',{x:x - barW/2 + 1,y:y,width:Math.max(1,barW - 2),height:Math.max(0,h - b - y),
+              fill:colors[(d.tier-1)%colors.length],opacity:'.9'});
+            rect.append(svgNode('title',{},`Tier ${d.tier} · ${v} installed RAM: ${pct(share)} of reaching games (${count}/${totals[d.tier]})`));
+            svg.append(rect);
+          });
+        }
+        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},'Installed RAM at the moment the tier clicked'));
+        svg.append(svgNode('text',{x:14,y:t+8,'text-anchor':'start',fill:'#BCC4D0','font-size':fs},'% of games reaching the tier'));
+        host.append(svg);
+      };
+      renderRam();
+      chartRedraws.push(renderRam);
+      // --- force quit line ---
+      if (result.force_quit) {
+        const q = result.force_quit;
+        $('quitLine').textContent = `Force quits: ${pct(q.first.share_trials_with_quit)} of games going first included a character force quit (mean ${q.first.mean_character_quits.toFixed(2)} per game); `+
+          `${pct(q.second.share_trials_with_quit)} going second (mean ${q.second.mean_character_quits.toFixed(2)}). A quit removes the character and everything hosted on it — one reason curves can plateau below 100%.`;
+      }
+      // --- CSV download of the full turn table ---
+      $('csvDownload').addEventListener('click', () => {
+        if (!latest) return;
+        const rows = [['tier','position','turn','probability','wilson_95_low','wilson_95_high','games_reached','trials']];
+        for (const r of latest.curves)
+          rows.push([r.tier, r.position, r.turn, r.probability.toFixed(6),
+            r.wilson_95_low.toFixed(6), r.wilson_95_high.toFixed(6), r.reached_count, r.trials]);
+        const blob=new Blob([rows.map(r => r.join(',')).join('\n')],{type:'text/csv'});
+        const url=URL.createObjectURL(blob), link=document.createElement('a');link.href=url;
+        link.download=`${latest.mainframe.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-turn-table.csv`;
+        link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
       $('warnings').innerHTML = result.warnings.map(w=>`<div>${esc(w)}</div>`).join('');
       $('results').scrollIntoView({behavior:'smooth',block:'start'});
     }
@@ -270,6 +325,13 @@
       } catch(error) {$('status').hidden=true;showError(error.message);}
       updateDeckCount();
     });
+    // One import button: a pasted link imports from the web; an empty field
+    // opens the file picker instead.
+    $('importLink').addEventListener('click',()=>{
+      const url=$('decklink').value.trim();
+      if (url) importDeckLink(url);
+      else $('deckfile').click();
+    });
     $('deckfile').addEventListener('change',async event=>{const file=event.target.files?.[0];
       if(!file)return;
       $('fileError').hidden=true;
@@ -280,6 +342,8 @@
       } catch(error) {
         $('fileError').hidden=false;
         $('fileError').textContent=`Could not read ${file.name}. The previous decklist was preserved.`;
+      } finally {
+        event.target.value='';
       }
     });
     function fetchWithTimeout(target, ms) {
@@ -336,7 +400,7 @@
         const detail=(first || error || {}).message || '';
         $('fileError').textContent=/not a readable deck|did not contain|no Cyberdeck/i.test(detail) ?
           `Could not import that link. ${detail}` :
-          `Could not import that link. Tried: ${attempts.join('; ')}. You can download the deck file and use Choose file, or paste the list directly.`;
+          `Could not import that link. Tried: ${attempts.join('; ')}. You can download the deck file and press Import to choose it, or paste the list directly.`;
       } finally {
         button.disabled=false;
         button.textContent=original;

@@ -205,8 +205,10 @@
     const counts = synergy(state);
     for (const tier of state.mainframe.tiers) {
       if (state.reached[tier.tier] !== undefined || state.board.length < tier.board_requirement) continue;
-      if (Object.entries(tier.faction_requirements).every(([faction, needed]) => (counts[faction] || 0) >= needed))
+      if (Object.entries(tier.faction_requirements).every(([faction, needed]) => (counts[faction] || 0) >= needed)) {
         state.reached[tier.tier] = turn;
+        (state.tierRam = state.tierRam || {})[tier.tier] = { installed: state.ramInstalled, free: state.ramFree };
+      }
     }
   }
 
@@ -344,7 +346,7 @@
       shuffled.unshift(...bottom);
     }
     const state = { mainframe, hand, deck: shuffled, board: [], nextBoardId: 1,
-      ramInstalled: 0, ramCommitted: 0, ramFree: 0, reached: {}, forceQuits: 0 };
+      ramInstalled: 0, ramCommitted: 0, ramFree: 0, reached: {}, tierRam: {}, forceQuits: 0 };
     for (let turn = 1; turn <= turns; turn++) {
       state.ramFree = state.ramInstalled - state.ramCommitted;
       const choices = first && turn === 1 ? 1 : 2;
@@ -484,6 +486,7 @@
       ramTarget = pilotScores[0].ram_target;
     }
     const hits = new Map(), quits = { first: 0, second: 0 }, quitTotals = { first: 0, second: 0 };
+    const ramAtTier = { first: {}, second: {} };  // tier -> {installed: [...], free: [...]}
     const stride = Math.max(1, Math.min(25, Math.floor(trials / 20)));
     for (const position of ['first', 'second']) {
       for (let trial = 0; trial < trials; trial++) {
@@ -492,9 +495,14 @@
         quitTotals[position] += state.forceQuits;
         for (const tier of mainframe.tiers) {
           const hit = state.reached[tier.tier];
-          if (hit !== undefined) for (let turn = hit; turn <= turns; turn++) {
-            const k = `${tier.tier}|${position}|${turn}`;
-            hits.set(k, (hits.get(k) || 0) + 1);
+          if (hit !== undefined) {
+            const bucket = ramAtTier[position][tier.tier] || (ramAtTier[position][tier.tier] = { installed: [], free: [] });
+            bucket.installed.push(state.tierRam[tier.tier].installed);
+            bucket.free.push(state.tierRam[tier.tier].free);
+            for (let turn = hit; turn <= turns; turn++) {
+              const k = `${tier.tier}|${position}|${turn}`;
+              hits.set(k, (hits.get(k) || 0) + 1);
+            }
           }
         }
         if ((trial + 1) % stride === 0 || trial + 1 === trials) {
@@ -513,6 +521,25 @@
       }
     const summaries = {};
     for (const tier of mainframe.tiers) summaries[tier.tier] = sourceSummary(deck, tier);
+    // Installed/free RAM at the moment each tier first came online, per position.
+    const mean = list => list.length ? list.reduce((a, b) => a + b, 0) / list.length : null;
+    const sd = list => { if (list.length < 2) return 0; const m = mean(list);
+      return Math.sqrt(list.reduce((s, v) => s + (v - m) ** 2, 0) / (list.length - 1)); };
+    const ramToTier = {};
+    const bin = list => { const bins = {};
+      for (const value of list) bins[value] = (bins[value] || 0) + 1;
+      return bins; };
+    for (const position of ['first', 'second']) {
+      ramToTier[position] = {};
+      for (const tier of mainframe.tiers) {
+        const bucket = ramAtTier[position][tier.tier];
+        ramToTier[position][tier.tier] = bucket ? {
+          n: bucket.installed.length,
+          installed_mean: mean(bucket.installed), installed_sd: sd(bucket.installed),
+          free_mean: mean(bucket.free), free_sd: sd(bucket.free),
+          installed_bins: bin(bucket.installed), free_bins: bin(bucket.free) } : null;
+      }
+    }
     const warnings = [LIMITS];
     if (deck.some(card => card.type === 'PROGRAM' && card.subtype === 'SCRIPT'))
       warnings.push('Scripts are included as draws; their printed effects are not simulated.');
@@ -525,6 +552,7 @@
         ram_target_selection: requestedTarget === null ? 'equal-tier/equal-turn pilot' : 'manual',
         pilot_trials_per_position_per_target: pilotTrials, pilot_scores: pilotScores },
       draw_only: drawOnly, curves,
+      ram_to_tier: ramToTier,
       force_quit: Object.fromEntries(['first', 'second'].map(position => [position,
         { share_trials_with_quit: quits[position] / trials, mean_character_quits: quitTotals[position] / trials }])),
       warnings };

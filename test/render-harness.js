@@ -75,14 +75,17 @@ const run = new Function('globalThis', 'hosts', code + `
     render(result);
     render(result); // second pass to catch state pollution
     return {
-      milestoneRows: (hosts.milestoneTable.$html.match(/<tr/g) || []).length,
-      drawRows: (hosts.drawTable.$html.match(/<tr/g) || []).length,
-      chartChildren: ['firstChart','secondChart','factionChart','jointChart'].map(id => hosts[id].children.length),
-      sourceSummaryLen: hosts.sourceSummary.$html.length,
-      milestonePicked: hosts.milestoneTable.$html.includes('class="picked"'),
-      drawPicked: hosts.drawTable.$html.includes('class="picked"'),
-      legendLen: hosts.turnLegend.$html.length,
-      statsLen: hosts.stats.$html.length
+      verdictCards: (hosts.verdict.$html.match(/class="card"/g) || []).length,
+      compositionLen: hosts.composition.$html.length,
+      sourceLineCount: (hosts.sourceLines.$html.match(/src-line/g) || []).length,
+      curveChildren: hosts.curveChart.children.length,
+      chipCount: (hosts.milestoneChips.$html.match(/class="chip"/g) || []).length,
+      chipHasCI: hosts.milestoneChips.$html.includes('class="ci"'),
+      handLineCount: (hosts.handLines.$html.match(/hand-line/g) || []).length,
+      ramNoteLen: ((hosts.ramNote.$html || hosts.ramNote.textContent) || '').length,
+      ramChildren: hosts.ramChart.children.length,
+      quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
+      warningsLen: hosts.warnings.$html.length
     };
   } };`);
 
@@ -91,12 +94,17 @@ const run = new Function('globalThis', 'hosts', code + `
   const out = await api.analyze();
   console.log(JSON.stringify(out, null, 1));
   const fail = [];
-  if (out.milestoneRows < 4) fail.push('milestone rows missing');
-  if (out.drawRows < 4) fail.push('draw rows missing');
-  if (out.chartChildren.some(n => !n)) fail.push('a chart host is empty');
-  if (!out.milestonePicked) fail.push('milestone picker column not highlighted');
-  if (!out.drawPicked) fail.push('draw picker column not highlighted');
-  if (!out.sourceSummaryLen) fail.push('source summary empty');
+  if (out.verdictCards < 1) fail.push('verdict strip empty');
+  if (!out.compositionLen) fail.push('composition empty');
+  if (out.sourceLineCount < 1) fail.push('source lines missing');
+  if (!out.curveChildren) fail.push('curve chart empty');
+  if (out.chipCount < 2) fail.push('milestone chips missing');
+  if (!out.chipHasCI) fail.push('chip CI missing');
+  if (out.handLineCount < 1) fail.push('hand lines missing');
+  if (!out.ramNoteLen) fail.push('ram note missing');
+  if (!out.ramChildren) fail.push('ram chart empty');
+  if (!out.quitLen) fail.push('quit line missing');
+  if (!out.warningsLen) fail.push('warnings missing');
   if (fail.length) { console.error('FAIL: ' + fail.join('; ')); process.exit(1); }
   console.log('render harness PASS');
 })().catch(e => { console.error('FAIL', e && e.stack || e); process.exit(1); });

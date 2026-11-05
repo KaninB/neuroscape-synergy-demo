@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Results redesign v2 — mockup (real data)</title>
+<style>
+  :root{
+    --page:#171A1D; --panel:#262B2F; --raised:#353B40; --line:#4B565E;
+    --text:#F9FAFB; --muted:#BCC4D0; --action:#24C8A5; --action-ink:#06261F;
+    --danger:#F0785A; --warning:#F4B942;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--text);
+    font:15px/1.52 Verdana,sans-serif;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:72px 72px;background-position:-1px -1px;}
+  body::before{content:"";position:fixed;inset:0;background:var(--page);opacity:.92;pointer-events:none}
+  main{position:relative;max-width:1060px;margin:0 auto;padding:22px 18px 60px}
+  .mock-head{position:relative;text-align:center;color:var(--muted);font:11px Arial,sans-serif;
+    letter-spacing:.18em;text-transform:uppercase;padding:18px 0 0}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    box-shadow:0 18px 44px rgba(0,0,0,.45);padding:24px 26px;margin-top:16px}
+  h2{font:bold 21px Arial,sans-serif;letter-spacing:-.01em;margin:0 0 6px}
+  h3{font:bold 14px Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px}
+  .muted{color:var(--muted)} .hint{color:var(--muted);font-size:12px}
+  .mono{font-family:"Courier New",ui-monospace,monospace}
+  .section{margin-top:28px;padding-top:22px;border-top:1px solid var(--line)}
+  .section-head{display:flex;justify-content:space-between;gap:14px;align-items:start;flex-wrap:wrap}
+  button{font:700 13px Arial,sans-serif;background:var(--action);color:var(--action-ink);
+    border:0;border-radius:4px;padding:9px 14px;cursor:pointer}
+  button:focus-visible{outline:3px solid var(--action);outline-offset:2px}
+  button.ghost{background:var(--raised);color:var(--text);border:1px solid var(--line)}
+  /* callout */
+  .callout{border:1px solid var(--line);border-left:3px solid var(--action);border-radius:4px;
+    background:var(--panel);padding:12px 14px;font-size:12.5px;color:var(--muted);margin:16px 0 0}
+  /* verdict strip */
+  .verdict{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+  .verdict .card{flex:1 1 200px;background:var(--raised);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+  .verdict b{font:700 24px "Courier New",monospace;display:block}
+  .verdict small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em;font-family:Arial}
+  .verdict .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+  /* segmented */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:14px 0 4px}
+  .seg button{background:var(--raised);color:var(--muted);border-radius:0;padding:7px 16px;font-weight:400}
+  .seg button.on{background:var(--action);color:var(--action-ink);font-weight:700}
+  /* source lines */
+  .src-line{margin:8px 0 2px;font-size:13.5px}
+  .src-line .req{color:var(--muted)}
+  /* chart */
+  .chart-box{background:var(--raised);border:1px solid var(--line);border-radius:4px;padding:10px 12px 6px;margin-top:12px}
+  svg text{font-family:Verdana,sans-serif}
+  .chart-tip{position:absolute;pointer-events:none;background:#101316;border:1px solid var(--line);
+    border-radius:4px;padding:8px 10px;font-size:12px;color:var(--text);z-index:5;min-width:170px;
+    box-shadow:0 8px 20px rgba(0,0,0,.5)}
+  .chart-tip .row{display:flex;justify-content:space-between;gap:14px;margin-top:3px}
+  .chart-tip .dim{color:var(--muted)}
+  /* chips */
+  .picker-row{display:flex;align-items:baseline;gap:12px;margin-top:18px;flex-wrap:wrap}
+  .picker-row input{width:76px;background:var(--raised);color:var(--text);border:1px solid var(--line);
+    border-radius:0;padding:7px 10px;font:700 16px "Courier New",monospace;text-align:center;-moz-appearance:textfield}
+  .picker-row input::-webkit-outer-spin-button,.picker-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .stepper{display:inline-flex;align-items:stretch}
+  .stepper .step-btn{flex:0 0 auto;width:40px;display:flex;align-items:center;justify-content:center;
+    background:var(--raised);color:var(--text);border:1px solid var(--line);cursor:pointer;
+    font:700 17px/1 "Courier New",monospace;padding:0;user-select:none}
+  .stepper .step-btn.minus{border-radius:4px 0 0 4px;border-right:0}
+  .stepper .step-btn.plus{border-radius:0 4px 4px 0;border-left:0}
+  .stepper .step-btn:hover{background:#3E454B}
+  .stepper .step-btn:active{background:var(--action);color:var(--action-ink)}
+  .picker-row input:focus-visible{outline:3px solid var(--action);outline-offset:1px}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .chip{background:var(--raised);border:1px solid var(--line);border-radius:4px;padding:8px 12px;min-width:120px}
+  .chip .k{font:11px Arial;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:block}
+  .chip .v{font:700 18px "Courier New",monospace}
+  .chip .ci{display:block;color:var(--muted);font-size:10.5px;font-family:"Courier New",monospace}
+  /* hand lines */
+  .hand-line{margin:8px 0;font-size:14px}
+  .hand-line .big{font:700 17px "Courier New",monospace}
+  /* quit line */
+  .quit-line{margin-top:16px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:12px}
+  /* composition */
+  .pill{display:inline-block;background:var(--raised);border:1px solid var(--line);border-radius:99px;
+    padding:3px 11px;font-size:12px;margin:2px 4px 2px 0;font-family:"Courier New",monospace}
+  @media(max-width:700px){.panel{padding:16px}.verdict{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="mock-head">Neuroscape · results redesign v2 · example deck · 5,000 real simulated games</div>
+<main>
+<section class="panel">
+
+  <div class="section-head">
+    <div><h2 id="rTitle"></h2><p class="muted" id="rSub"></p></div>
+    <button type="button" id="csvBtn">Download turn table (CSV)</button>
+  </div>
+
+  <div class="callout">
+    <strong>How the numbers are calculated.</strong> Turn curves come from n = 5,000 simulated structural games
+    per position — the percent is the share of games where the tier first came online by that turn
+    (Wilson 95% range on hover). Opening-hand and RAM figures come from the same games. The model omits card
+    effects, tokens, attacks, opponent interaction, and lethal endings.
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+
+  <div class="section">
+    <h2>What is in this deck?</h2>
+    <div id="composition"></div>
+  </div>
+
+  <div class="section">
+    <h2>Played out — when tiers come online</h2>
+    <div class="seg" id="posToggle" role="group" aria-label="Which position to chart">
+      <button type="button" data-pos="first" class="on" aria-pressed="true">Going first</button>
+      <button type="button" data-pos="second" aria-pressed="false">Going second</button>
+    </div>
+
+    <div id="sourceLines"></div>
+
+    <div class="chart-box" id="curveHost">
+      <div id="curveChart" style="position:relative"></div>
+    </div>
+
+    <div class="picker-row">
+      <label for="turnPick"><strong>At turn</strong></label>
+      <div class="stepper"><button class="step-btn minus" type="button" aria-label="Decrease turn">−</button><input id="turnPick" type="number" inputmode="numeric" min="1" step="1" value="6"><button class="step-btn plus" type="button" aria-label="Increase turn">+</button></div>
+      <span class="hint">F&nbsp;=&nbsp;going <b>F</b>irst · S&nbsp;=&nbsp;going <b>S</b>econd · number&nbsp;=&nbsp;tier</span>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="section">
+    <h2>Why — the deck and the draw</h2>
+    <h3>Opening hand (5 cards)</h3>
+    <div id="handLines"></div>
+    <p class="hint">Average number of qualifying source cards in a random opening 5 (± standard deviation),
+    followed by the share of hands that already satisfy the tier's printed requirement. Exact math —
+    computed over every possible 5-card draw of your deck, no simulation.</p>
+
+    <h3>Installed RAM when the tier clicked</h3>
+    <p class="hint" id="ramNote"></p>
+    <div class="chart-box"><div id="ramChart" style="position:relative"></div></div>
+
+    <div class="quit-line" id="quitLine"></div>
+  </div>
+
+</section>
+</main>
+<script src="mockup-data.js"></script>
+<script>
+(function(){
+"use strict";
+const D = window.MOCKUP_DATA;
+const $ = id => document.getElementById(id);
+const COLORS = {1:'#24C8A5',2:'#E25C8D',3:'#F4B942',4:'#8B7CF6',5:'#56B4E9',6:'#F0785A'};
+const DASH   = {1:'',2:'8 5',3:'2 4',4:'',5:'8 5',6:'2 4'};
+const pct = v => (100*v).toFixed(1) + '%';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tiers = D.mainframe.tiers.map(t => t.tier);
+const turns = D.settings.turns;
+let position = 'first';
+
+/* ---------- header + verdict ---------- */
+$('rTitle').textContent = `${D.mainframe.name} · ${D.deck_size} cards`;
+$('rSub').textContent = `n = ${D.settings.trials_per_position.toLocaleString()} simulated games per position · max turn ${turns} · RAM budget ${D.settings.ram_target} (chosen by pilot games)`;
+
+function medianFirstHit(tier, pos){
+  const rows = D.curves.filter(r => r.tier === tier && r.position === pos).sort((a,b) => a.turn - b.turn);
+  const firstTurns = [];
+  let prev = 0;
+  for (const r of rows){
+    if (r.reached_count > prev) for (let k = prev; k < r.reached_count; k++) firstTurns.push(r.turn);
+    prev = Math.max(prev, r.reached_count);
+  }
+  return firstTurns.length ? firstTurns[Math.floor((firstTurns.length - 1) / 2)] : null;
+}
+$('verdict').innerHTML = tiers.map(t => {
+  const m1 = medianFirstHit(t,'first'), m2 = medianFirstHit(t,'second');
+  const fmt = m => m === null ? 'not reached' : `turn ${m}`;
+  return `<div class="card">
+    <small><span class="swatch" style="background:${COLORS[t]}"></span>Tier ${t} · typically online</small>
+    <b>${esc(fmt(m1))}</b>
+    <small>going first · ${esc(fmt(m2))} going second</small>
+  </div>`;
+}).join('');
+
+/* ---------- source-count lines above the chart ---------- */
+$('sourceLines').innerHTML = D.mainframe.tiers.map(tier => {
+  const s = D.source_summary_by_tier[String(tier.tier)];
+  const need = Object.entries(tier.faction_requirements).map(([f,n]) => `${n} ${f.toLowerCase()}`).join(' + ');
+  const have = Object.entries(s.icons_by_faction).map(([f,n]) => `${n} ${f.toLowerCase()}`).join(', ');
+  return `<p class="src-line"><b>Tier ${tier.tier}</b> needs <span class="req">${esc(need)} icons + ${tier.board_requirement} board</span>
+    — deck carries <b>${esc(have)}</b> on ${s.source_cards} persistent sources (${pct(s.source_fraction)} of the deck).</p>`;
+}).join('');
+
+/* ---------- cumulative curve chart ---------- */
+function drawCurve(){
+  const host = $('curveChart');
+  host.replaceChildren();
+  const w = 960, h = 380, l = 58, r = 96, t = 16, b = 46, fs = 12;
+  const sx = x => l + (x - 1) / Math.max(1, turns - 1) * (w - l - r);
+  const sy = y => t + (1 - y) * (h - t - b);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.setAttribute('role','img');
+  svg.setAttribute('aria-label','Cumulative probability each tier is online, by own turn');
+  for (const v of [0,.25,.5,.75,1]){
+    svg.appendChild(line(l, sy(v), w-r, sy(v), '#4B565E'));
+    svg.appendChild(text(l-8, sy(v)+4, (v*100)+'%', 'end'));
+  }
+  for (let x = 1; x <= turns; x++){
+    svg.appendChild(line(sx(x), h-b, sx(x), h-b+5, '#7B8992'));
+    svg.appendChild(text(sx(x), h-b+21, String(x), 'middle'));
+  }
+  svg.appendChild(text((l+w-r)/2, h-6, 'Own turn', 'middle'));
+  const tipRows = [];
+  for (const tier of tiers){
+    const series = D.curves.filter(r => r.tier === tier && r.position === position).sort((a,b) => a.turn - b.turn);
+    if (!series.length) continue;
+    const parts = [`M ${sx(series[0].turn)} ${sy(series[0].probability)}`];
+    for (let i = 1; i < series.length; i++)
+      parts.push(`H ${sx(series[i].turn)} V ${sy(series[i].probability)}`);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', parts.join(' '));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', COLORS[tier]);
+    path.setAttribute('stroke-width','3');
+    if (DASH[tier]) path.setAttribute('stroke-dasharray', DASH[tier]);
+    path.setAttribute('stroke-linejoin','round');
+    svg.appendChild(path);
+    const last = series[series.length - 1];
+    const med = medianFirstHit(tier, position);
+    svg.appendChild(text(sx(last.turn) + 8, sy(last.probability) + 4,
+      `T${tier}${med !== null ? ' · med ' + med : ' · —'}`, 'start', COLORS[tier], true));
+    for (const row of series)
+      svg.appendChild(circle(sx(row.turn), sy(row.probability), 2.6, COLORS[tier], `p${tier}-${row.turn}`));
+    tipRows.push({ tier, series });
+  }
+  const cross = line(0, t, 0, h-b, '#7B8992');
+  cross.setAttribute('visibility','hidden');
+  cross.setAttribute('stroke-dasharray','3 3');
+  svg.appendChild(cross);
+  host.appendChild(svg);
+  const tip = document.createElement('div');
+  tip.className = 'chart-tip';
+  tip.style.display = 'none';
+  host.appendChild(tip);
+  svg.addEventListener('pointermove', ev => {
+    const rect = svg.getBoundingClientRect();
+    const mx = (ev.clientX - rect.left) * w / rect.width;
+    const turn = Math.max(1, Math.min(turns, Math.round(1 + (mx - l) / (w - l - r) * (turns - 1))));
+    cross.setAttribute('x1', sx(turn)); cross.setAttribute('x2', sx(turn));
+    cross.setAttribute('visibility','visible');
+    tip.innerHTML = `<b>Turn ${turn} · going ${position === 'first' ? 'first' : 'second'}</b>` +
+      tipRows.map(({tier, series}) => {
+        const r = series.find(x => x.turn === turn);
+        return `<div class="row"><span><span style="color:${COLORS[tier]}">■</span> Tier ${tier}</span>
+          <span>${pct(r.probability)} <span class="dim">(${pct(r.wilson_95_low)}–${pct(r.wilson_95_high)})</span></span></div>`;
+      }).join('');
+    tip.style.display = 'block';
+    const hostRect = host.getBoundingClientRect();
+    let tx = ev.clientX - hostRect.left + 14;
+    if (tx + 220 > hostRect.width) tx -= 240;
+    tip.style.left = Math.max(0, tx) + 'px';
+    tip.style.top = Math.max(0, ev.clientY - hostRect.top - 20) + 'px';
+  });
+  svg.addEventListener('pointerleave', () => { tip.style.display = 'none'; cross.setAttribute('visibility','hidden'); });
+}
+function line(x1,y1,x2,y2,stroke){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','line');
+  el.setAttribute('x1',x1); el.setAttribute('y1',y1); el.setAttribute('x2',x2); el.setAttribute('y2',y2);
+  el.setAttribute('stroke',stroke);
+  return el;
+}
+function text(x,y,str,anchor,fill,bold){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+  el.setAttribute('x',x); el.setAttribute('y',y);
+  el.setAttribute('text-anchor',anchor);
+  el.setAttribute('fill',fill || '#BCC4D0');
+  el.setAttribute('font-size', bold ? '12.5' : '12');
+  if (bold) el.setAttribute('font-weight','700');
+  el.textContent = str;
+  return el;
+}
+function circle(cx,cy,r,fill,id){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  el.setAttribute('cx',cx); el.setAttribute('cy',cy); el.setAttribute('r',r); el.setAttribute('fill',fill);
+  if (id) el.setAttribute('id',id);
+  return el;
+}
+
+/* ---------- milestone chips ---------- */
+function renderChips(){
+  const turn = Math.max(1, Math.min(turns, Math.round(Number($('turnPick').value) || 6)));
+  $('chips').innerHTML = tiers.flatMap(t => ['first','second'].map(pos => {
+    const r = D.curves.find(x => x.tier === t && x.position === pos && x.turn === turn);
+    const key = (pos === 'first' ? 'F' : 'S') + '-' + t;
+    return `<div class="chip" title="Tier ${t} by turn ${turn}, going ${pos === 'first' ? 'first' : 'second'}:
+      ${pct(r.probability)} — Wilson 95% range ${pct(r.wilson_95_low)}–${pct(r.wilson_95_high)},
+      from ${r.trials.toLocaleString()} simulated games">
+      <span class="k">${key} · by turn ${turn}</span>
+      <span class="v" style="color:${COLORS[t]}">${pct(r.probability)}</span>
+      <span class="ci">${pct(r.wilson_95_low)}–${pct(r.wilson_95_high)}</span>
+    </div>`;
+  })).join('');
+}
+$('turnPick').addEventListener('input', renderChips);
+/* stepper for the turn picker — same behavior as the main site: hold to repeat */
+(function(){
+  const input = $('turnPick');
+  for (const btn of document.querySelectorAll('#posToggle ~ * .step-btn, .picker-row .step-btn')){
+    const dir = btn.classList.contains('plus') ? 1 : -1;
+    const apply = () => {
+      const base = Number(input.value) || 1;
+      const next = Math.max(1, Math.min(turns, base + dir));
+      if (next !== base){ input.value = next; renderChips(); }
+    };
+    let timer = null, repeat = null;
+    const stop = () => { clearTimeout(timer); clearInterval(repeat); timer = repeat = null; };
+    btn.addEventListener('pointerdown', e => { if (e.button !== 0) return; apply();
+      timer = setTimeout(() => { repeat = setInterval(apply, 90); }, 420); });
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('pointercancel', stop);
+    btn.addEventListener('click', e => { if (e.detail === 0) apply(); });
+  }
+})();
+
+/* ---------- opening hand lines (exact hypergeometric mean/SD + simulated share) ---------- */
+function renderHand(){
+  const N = D.deck_size, n = 5;
+  $('handLines').innerHTML = D.mainframe.tiers.map(tier => {
+    const s = D.source_summary_by_tier[String(tier.tier)];
+    const K = s.source_cards;
+    const mean = n * K / N;
+    const sd = Math.sqrt(n * (K/N) * (1 - K/N) * (N - n) / (N - 1));
+    const joint = D.draw_only.find(r => r.tier === tier.tier && r.cards_seen === n).joint_threshold_probability;
+    const need = Object.entries(tier.faction_requirements).map(([f,c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+    return `<p class="hand-line"><b>Tier ${tier.tier}</b> — opening 5 holds
+      <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> of the ${K} qualifying sources
+      <span class="muted">(needs ${esc(need)} + ${tier.board_requirement} board)</span> —
+      <span class="big">${pct(joint)}</span> of hands already qualify.</p>`;
+  }).join('');
+}
+
+/* ---------- RAM histogram ---------- */
+function renderRam(){
+  const host = $('ramChart');
+  host.replaceChildren();
+  const data = tiers.map(t => ({ tier: t, bins: D.ram_to_tier[position][String(t)]?.installed_bins || null }))
+    .filter(d => d.bins);
+  const ns = tiers.map(t => {
+    const d = D.ram_to_tier[position][String(t)];
+    return d ? `Tier ${t}: n = ${d.n.toLocaleString()} of ${D.settings.trials_per_position.toLocaleString()} games` : `Tier ${t}: never reached`;
+  }).join(' · ');
+  $('ramNote').textContent = `Share of the games that reached each tier, by how much RAM the simulated player
+    had installed at the moment the tier clicked — going ${position === 'first' ? 'first' : 'second'} (${ns}).
+    Bars are conditioned on reaching; a long right tail means the tier usually waits on expensive pieces.`;
+  if (!data.length){ host.innerHTML = '<p class="hint">No games reached any tier in this configuration.</p>'; return; }
+  const maxRam = Math.max(...data.flatMap(d => Object.keys(d.bins).map(Number)));
+  const minRam = Math.min(...data.flatMap(d => Object.keys(d.bins).map(Number)));
+  const w = 960, h = 300, l = 58, r = 20, t = 18, b = 46, fs = 12;
+  const sx = v => l + (v - minRam) / Math.max(1, maxRam - minRam + 1) * (w - l - r);
+  const totals = {};
+  for (const d of data) totals[d.tier] = Object.values(d.bins).reduce((a,b2) => a + b2, 0);
+  const maxShare = Math.max(...data.flatMap(d => Object.entries(d.bins).map(([v,c]) => c / totals[d.tier])));
+  // Top gridline matches the bar scale exactly; ticks every 10%.
+  const yMax = Math.min(1, Math.ceil(maxShare * 10) / 10 + 1e-9);
+  const sy = y => t + (1 - y / yMax) * (h - t - b);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.setAttribute('role','img');
+  svg.setAttribute('aria-label','Installed RAM when each tier first came online');
+  for (const v of [0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1].filter(v => v <= yMax + 1e-9)){
+    svg.appendChild(line(l, sy(v), w-r, sy(v), '#4B565E'));
+    svg.appendChild(text(l-8, sy(v)+4, (v*100)+'%', 'end'));
+  }
+  const groupW = (w - l - r) / (maxRam - minRam + 1);
+  const barW = Math.max(6, groupW / (data.length + 1));
+  for (let v = minRam; v <= maxRam; v++){
+    svg.appendChild(text(sx(v) + groupW/2, h-b+21, String(v), 'middle'));
+    data.forEach((d, i) => {
+      const count = d.bins[v] || 0;
+      const share = count / totals[d.tier];
+      const x = sx(v) + groupW/2 + (i - data.length/2 + .5) * barW;
+      const y = sy(share);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x', x - barW/2 + 1); rect.setAttribute('y', y);
+      rect.setAttribute('width', barW - 2); rect.setAttribute('height', h - b - y);
+      rect.setAttribute('fill', COLORS[d.tier]);
+      rect.setAttribute('opacity','.9');
+      const tip = `${esc('Tier ' + d.tier)} · ${v} installed RAM: ${pct(share)} of reaching games (${count}/${totals[d.tier]})`;
+      const title = document.createElementNS('http://www.w3.org/2000/svg','title');
+      title.textContent = tip;
+      rect.appendChild(title);
+      svg.appendChild(rect);
+    });
+  }
+  svg.appendChild(text((l+w-r)/2, h-6, 'Installed RAM at the moment the tier clicked', 'middle'));
+  svg.appendChild(text(14, t + 8, '% of games reaching the tier', 'start'));
+  host.appendChild(svg);
+}
+
+/* ---------- force quit line ---------- */
+function renderQuit(){
+  const q = D.force_quit;
+  $('quitLine').textContent =
+    `Force quits: ${pct(q.first.share_trials_with_quit)} of games going first included a character force quit ` +
+    `(mean ${q.first.mean_character_quits.toFixed(2)} per game); ` +
+    `${pct(q.second.share_trials_with_quit)} going second (mean ${q.second.mean_character_quits.toFixed(2)}). ` +
+    `A quit removes the character and everything hosted on it, which is why curves can plateau below 100%.`;
+}
+
+/* ---------- composition ---------- */
+function renderComposition(){
+  $('composition').innerHTML = D.mainframe.tiers.map(tier => {
+    const s = D.source_summary_by_tier[String(tier.tier)];
+    const costs = Object.entries(s.source_by_ram_cost).map(([c,n]) => `cost ${c}: ${n}`).join(' · ');
+    const types = Object.entries(s.source_by_type).map(([ty,n]) => `${n} ${ty.toLowerCase()}`).join(', ');
+    return `<p><b>Tier ${tier.tier} sources</b> — ${esc(costs) || 'no sources'}<br>
+      <span class="muted">${esc(types)}; ${s.persistent_cards} other persistents, ${s.script_cards} scripts</span></p>`;
+  }).join('') ;
+}
+
+/* ---------- CSV download ---------- */
+$('csvBtn').addEventListener('click', () => {
+  const rows = [['tier','position','turn','probability','wilson_95_low','wilson_95_high','games_reached','trials']];
+  for (const r of D.curves)
+    rows.push([r.tier, r.position, r.turn, r.probability.toFixed(6),
+      r.wilson_95_low.toFixed(6), r.wilson_95_high.toFixed(6), r.reached_count, r.trials]);
+  const blob = new Blob([rows.map(r => r.join(',')).join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${D.mainframe.name.toLowerCase()}-turn-table.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* ---------- position toggle ---------- */
+for (const b of document.querySelectorAll('#posToggle button'))
+  b.addEventListener('click', () => {
+    position = b.dataset.pos;
+    for (const x of document.querySelectorAll('#posToggle button')){
+      const on = x === b;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', String(on));
+    }
+    drawCurve(); renderRam();
+  });
+
+drawCurve(); renderChips(); renderHand(); renderRam(); renderQuit(); renderComposition();
+})();
+</script>
+</body>
+</html>
