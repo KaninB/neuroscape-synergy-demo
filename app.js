@@ -199,52 +199,90 @@
         return `<p class="hand-line"><b>Tier ${tier.tier}</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> of the ${K} qualifying sources `+
           `<span class="hint">(needs ${esc(need)} + ${tier.board_requirement} board)</span> — <span class="big">${pct(joint.joint_threshold_probability)}</span> of hands already qualify.</p>`;
       }).join('');
-      // --- RAM-at-click histogram ---
+      // --- installed RAM when the synergy came online (overlaid histograms) ---
       const ramData = result.ram_to_tier || null;
+      const medianOf = bins => {
+        const total = Object.values(bins).reduce((a, c) => a + c, 0);
+        let cum = 0;
+        for (const k of Object.keys(bins).map(Number).sort((a, b) => a - b)) {
+          cum += bins[k];
+          if (cum >= total / 2) return k;
+        }
+        return null;
+      };
       const renderRam = () => {
         const host = $('ramChart');
         host.replaceChildren();
         if (!ramData) { host.innerHTML = '<p class="hint">RAM telemetry unavailable for this run.</p>'; return; }
-        const data = tierNums.map(tier => ({ tier, bins: ramData[positionView][String(tier)] && ramData[positionView][String(tier)].installed_bins }))
-          .filter(d => d.bins);
-        const ns = tierNums.map(tier => {
+        const data = tierNums.map(tier => {
           const d = ramData[positionView][String(tier)];
-          return d ? `Tier ${tier}: n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} games` : `Tier ${tier}: never reached`;
-        }).join(' · ');
-        $('ramNote').textContent = `Share of the games that reached each tier, by how much RAM the simulated player had installed at the moment the tier clicked — going ${positionView === 'first' ? 'first' : 'second'} (${ns}). Bars are conditioned on reaching; a long right tail means the tier usually waits on expensive pieces.`;
-        if (!data.length) { host.innerHTML = '<p class="hint">No games reached any tier in this configuration.</p>'; return; }
+          return d && d.installed_bins ? { tier, bins: d.installed_bins, n: d.n } : null;
+        }).filter(Boolean);
+        if (!data.length) {
+          $('ramNote').textContent = `No games reached any tier going ${positionView === 'first' ? 'first' : 'second'} in this configuration.`;
+          return;
+        }
+        const ns = data.map(d => `Tier ${d.tier}: n = ${d.n.toLocaleString()}`).join(' · ');
+        const medians = {};
+        for (const d of data) medians[d.tier] = medianOf(d.bins);
+        const medText = data.map(d => `Tier ${d.tier} around ${medians[d.tier]} RAM`).join(', ');
+        $('ramNote').textContent = `How much RAM the simulated player had installed when each synergy clicked — going ${positionView === 'first' ? 'first' : 'second'} (${ns}). Each tier's bars are shares of its own reaching games; dashed lines mark the typical (median) RAM: ${medText}. Bars far right = the tier waits on RAM installs; a late curve with bars far left = the tier waits on pieces.`;
         const maxRam = Math.max(...data.flatMap(d => Object.keys(d.bins).map(Number)));
         const minRam = Math.min(...data.flatMap(d => Object.keys(d.bins).map(Number)));
         const tall = host.clientWidth > 0 && host.clientWidth < 430;
         const w = tall ? 340 : 960, h = tall ? 380 : 300, l = tall ? 47 : 58, r = tall ? 16 : 20, t = 18, b = 46, fs = tall ? 13 : 12;
-        const sx = v => l + (v - minRam) / Math.max(1, maxRam - minRam + 1) * (w - l - r);
+        const slots = Math.max(1, maxRam - minRam + 1);
+        const sx = v => l + (v - minRam) / slots * (w - l - r);
+        const groupW = (w - l - r) / slots;
         const totals = {};
-        for (const d of data) totals[d.tier] = Object.values(d.bins).reduce((a,c) => a + c, 0);
-        const maxShare = Math.max(...data.flatMap(d => Object.entries(d.bins).map(([v,c]) => c / totals[d.tier])));
-        const yMax = Math.min(1, Math.ceil(maxShare * 10) / 10 + 1e-9);
+        for (const d of data) totals[d.tier] = Object.values(d.bins).reduce((a, c) => a + c, 0);
+        const shareOf = (d, v) => (d.bins[v] || 0) / totals[d.tier];
+        const maxShare = Math.max(...data.flatMap(d => Object.keys(d.bins).map(Number).map(v => shareOf(d, v))));
+        // Nice y ticks: pick the largest step that keeps ~5 or fewer gridlines.
+        const yMaxRaw = Math.max(0.05, maxShare);
+        const step = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => yMaxRaw / s <= 5) || 1;
+        const yMax = Math.min(1, Math.ceil(yMaxRaw / step - 1e-9) * step);
         const sy = y => t + (1 - y / yMax) * (h - t - b);
-        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':'Installed RAM when each tier first came online'});
-        for (const v of [0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1].filter(v => v <= yMax + 1e-9)) {
+        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':'Installed RAM when each synergy came online'});
+        for (let v = 0; v <= yMax + 1e-9; v += step) {
           svg.append(svgNode('line',{x1:l,y1:sy(v),x2:w-r,y2:sy(v),stroke:'#4B565E'}));
           svg.append(svgNode('text',{x:l-8,y:sy(v)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${Math.round(v*100)}%`));
         }
-        const groupW = (w - l - r) / (maxRam - minRam + 1);
-        const barW = Math.max(6, groupW / (data.length + 1));
-        for (let v = minRam; v <= maxRam; v++) {
-          svg.append(svgNode('text',{x:sx(v) + groupW/2,y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(v)));
-          data.forEach((d, i) => {
+        // Layered histograms: flattest tier drawn first so peaky ones stay visible.
+        const drawOrder = [...data].sort((a, b2) => shareOf(a, medians[a.tier]) - shareOf(b2, medians[b2.tier]) || a.tier - b2.tier);
+        for (const d of drawOrder) {
+          const color = colors[(d.tier-1)%colors.length];
+          for (let v = minRam; v <= maxRam; v++) {
             const count = d.bins[v] || 0;
+            if (!count) continue;
             const share = count / totals[d.tier];
-            const x = sx(v) + groupW/2 + (i - data.length/2 + .5) * barW;
-            const y = sy(share);
-            const rect = svgNode('rect',{x:x - barW/2 + 1,y:y,width:Math.max(1,barW - 2),height:Math.max(0,h - b - y),
-              fill:colors[(d.tier-1)%colors.length],opacity:'.9'});
-            rect.append(svgNode('title',{},`Tier ${d.tier} · ${v} installed RAM: ${pct(share)} of reaching games (${count}/${totals[d.tier]})`));
+            const x = sx(v) + 1, y = sy(share), bw = Math.max(3, groupW - 2);
+            const rect = svgNode('rect',{x,y,width:bw,height:Math.max(0,h - b - y),fill:color,'fill-opacity':'.5'});
+            rect.append(svgNode('title',{},`Tier ${d.tier} · ${v} installed RAM: ${pct(share)} of its reaching games (${count.toLocaleString()}/${totals[d.tier].toLocaleString()})`));
             svg.append(rect);
-          });
+          }
+          let path = null;
+          for (let v = minRam; v <= maxRam; v++) {
+            if (v === minRam) path = [`M ${sx(v)} ${h-b}`];
+            path.push(`L ${sx(v)} ${sy(shareOf(d, v))}`, `L ${sx(v + 1)} ${sy(shareOf(d, v))}`);
+          }
+          if (path) {
+            path.push(`L ${sx(maxRam + 1)} ${h-b}`);
+            svg.append(svgNode('path',{d:path.join(' '),fill:'none',stroke:color,'stroke-width':2}));
+          }
         }
-        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},'Installed RAM at the moment the tier clicked'));
-        svg.append(svgNode('text',{x:14,y:t+8,'text-anchor':'start',fill:'#BCC4D0','font-size':fs},'% of games reaching the tier'));
+        // Median marker per tier; labels stack by tier so they never collide.
+        for (const d of data) {
+          const med = medians[d.tier];
+          if (med === null || med === undefined) continue;
+          const color = colors[(d.tier-1)%colors.length];
+          const x = sx(med) + groupW/2;
+          svg.append(svgNode('line',{x1:x,y1:t,x2:x,y2:h-b,stroke:color,'stroke-width':1.5,'stroke-dasharray':'4 3'}));
+          const lx = Math.min(w - r - 16, Math.max(l + 16, x));
+          svg.append(svgNode('text',{x:lx,y:t + 10 + tierNums.indexOf(d.tier) * 13,'text-anchor':'middle',fill:color,'font-size':fs,'font-weight':700},`T${d.tier} · med ${med}`));
+        }
+        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},'Installed RAM when the synergy came online'));
+        svg.append(svgNode('text',{x:14,y:t+8,'text-anchor':'start',fill:'#BCC4D0','font-size':fs},'% of the tier\u2019s reaching games'));
         host.append(svg);
       };
       renderRam();
