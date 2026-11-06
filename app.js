@@ -38,6 +38,17 @@
       if (text) el.textContent = text;
       return el;
     }
+    // Sanitized HTML builder: only plain-string text nodes — no raw innerHTML.
+    function dom(tag, attrs = {}, ...kids) {
+      const el = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') el.className = v; else el.setAttribute(k, v);
+      }
+      for (const kid of kids.flat()) {
+        el.append(typeof kid === 'string' ? document.createTextNode(kid) : kid);
+      }
+      return el;
+    }
     function render(result) {
       latest = result; $('placeholder').hidden = true; $('status').hidden = true; $('results').hidden = false;
       const mf = result.mainframe, tiers = mf.tiers, curves = result.curves, draw = result.draw_only;
@@ -256,9 +267,9 @@
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
         const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
         const sy = y => t + (1 - y) * (h - t - b);
-        const iconWord = n => `${n} ${splashWord} icon${n === 1 ? '' : 's'}`;
+        const iconWord = n => `${n} ${splashWord}`;
         const svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img',
-          'aria-label': `Probability the board holds at least ${thresholdList.map(iconWord).join(' or ')}, by turn, going ${splashPositionView === 'first' ? 'first' : 'second'}` });
+          'aria-label': `Likelihood your board holds at least ${thresholdList.map(iconWord).join(' or ')} persistent sources, by turn, going ${splashPositionView === 'first' ? 'first' : 'second'}` });
         for (const value of [0, .25, .5, .75, 1]) {
           if (value) svg.append(svgNode('line', { x1: l, y1: sy(value), x2: w - r, y2: sy(value), stroke: fillGrid }));
           svg.append(svgNode('text', { x: l - 9, y: sy(value) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, `${value * 100}%`));
@@ -280,7 +291,7 @@
           const last = rows[rows.length - 1], lastProb = at(last);
           svg.append(svgNode('text', { x: sx(last.turn) + 9, y: Math.max(t + 10, Math.min(h - b - 6, sy(lastProb) + 5)),
             'text-anchor': 'start', fill: colors[i % colors.length], 'font-size': fs, 'font-weight': 600 },
-            needed === 1 ? '≥ 1 icon' : `≥ ${needed} icons`));
+            iconWord(needed)));
         });
         host.append(svg);
       };
@@ -297,23 +308,31 @@
           for (const r of rows) if ((r.at_least.find(a => a.min_icons === n)?.probability || 0) >= .5) return r.turn;
           return null;
         };
-        const thresholdLines = thresholdList.map(n => {
-          const p = atLeast(n), mid = midTurn(n);
-          return `<li><span class="req">≥ ${n} ${esc(splashWord)} icon${n === 1 ? '' : 's'}</span> — ${pct(p)} of games by turn ${maxTurn}` +
-            `${p > 0 && mid !== null && mid <= maxTurn ? ` (usually met around turn ${mid})` : ''}.</li>`;
-        }).join('');
-        // Payoff menu: every requirement-bearing package card with its odds.
-        const payLines = splashPayoffs.map(p => {
-          const row = (result.card_first_play || []).find(r => r.card_id === p.card_id && r.position === splashPositionView && r.turn === maxTurn);
-          const need = Object.entries(p.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
-          const kind = p.persistent ? 'persistent' : 'script';
-          return `<li><b>${esc(p.name)}</b> <span class="hint">(${kind} · needs ${esc(need)})</span> — ` +
-            `${row ? pct(row.probability) : '—'} of games had it played/online by turn ${maxTurn}.</li>`;
-        }).join('');
-        $('splashCardProse').innerHTML =
-          `<p class="src-line"><b>When the requirements come online</b> — P(board icons ≥ n), going ${splashPositionView === 'first' ? 'first' : 'second'}:</p><ul>${thresholdLines}</ul>` +
-          `<p class="src-line"><b>Payoffs</b> (each also needs its own RAM cost):</p><ul>${payLines}</ul>`;
-        $('splashHistNote').textContent = `Share of simulated games where the board holds at least n ${splashWord} icons, by end of turn. Each line is a requirement level printed on a package card; a payoff comes online once every line it needs is met and its RAM cost is paid.`;
+        // Requirement lines + payoff menu, built as DOM text nodes (no innerHTML).
+        const prose = dom('div', {},
+          dom('p', { class: 'src-line' },
+            dom('b', {}, 'When the requirements come online'),
+            ` — P(your board holds ≥ n persistent ${splashWord} sources), going ${splashPositionView === 'first' ? 'first' : 'second'}:`),
+          dom('ul', {}, thresholdList.map(n => {
+            const p = atLeast(n), mid = midTurn(n);
+            return dom('li', {},
+              dom('span', { class: 'req' }, `≥ ${n} ${splashWord} persistent source${n === 1 ? '' : 's'}`),
+              ` — ${pct(p)} of games by turn ${maxTurn}` +
+              (p > 0 && mid !== null && mid <= maxTurn ? ` (usually met around turn ${mid})` : '') + '.');
+          })),
+          dom('p', { class: 'src-line' },
+            dom('b', {}, 'Payoffs'), ' (each also needs its own RAM cost:)'),
+          dom('ul', {}, splashPayoffs.map(p => {
+            const row = (result.card_first_play || []).find(r => r.card_id === p.card_id && r.position === splashPositionView && r.turn === maxTurn);
+            const need = Object.entries(p.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+            const kind = p.persistent ? 'persistent' : 'script';
+            return dom('li', {},
+              dom('b', {}, p.name), ' ',
+              dom('span', { class: 'hint' }, `(${kind} · needs ${need})`),
+              ` — ${row ? pct(row.probability) : '—'} of games had it played/online by turn ${maxTurn}.`);
+          })));
+        $('splashCardProse').replaceChildren(prose);
+        $('splashHistNote').textContent = `Likelihood, by end of each turn, that your board holds at least n persistent ${splashWord} sources. Each line is a requirement level printed on a package card (one ${splashWord}, two ${splashWord}, …); a payoff comes online once every line it needs is met and its RAM cost is paid.`;
         // Splash tax: real deck vs neutral-filler swap at the same budget, at the horizon.
         const taxRows = result.splash.tax ? tiers.map(tier => {
           const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);

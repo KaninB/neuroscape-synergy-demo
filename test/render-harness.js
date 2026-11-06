@@ -15,9 +15,9 @@ function stubElement(tag = 'div') {
       toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); },
       contains(c) { return this._s.has(c); }
     },
-    append(...kids) { for (const k of kids) { if (k && k.$text) k.$text += String(k); else this.children.push(k); } },
+    append(...kids) { for (const k of kids) this.children.push(k); },
     appendChild(k) { this.append(k); return k; },
-    replaceChildren() { this.children = []; },
+    replaceChildren(...kids) { this.children = kids; },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return this.attrs[k]; },
     addEventListener() {}, removeEventListener() {},
@@ -47,6 +47,7 @@ global.document = {
   getElementById: get,
   createElement: tag => stubElement(tag),
   createElementNS: (ns, tag) => stubElement(tag),
+  createTextNode: text => ({ $text: String(text) }),
   querySelectorAll: () => [],
   addEventListener() {}, activeElement: null, contains() { return false; }
 };
@@ -103,7 +104,8 @@ const run = new Function('globalThis', 'hosts', code + `
       quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
       warningsLen: hosts.warnings.$html.length,
       splashChildren: hosts.splashChart.children.length,
-      splashProse: hosts.splashCardProse.$html || '',
+      // prose is built with DOM text nodes now — recurse for text
+      splashProse: (function walk(k){ let out=[]; if(k&&k.$text!==undefined)out.push(String(k.$text)); for(const c of (k&&k.children||[])) out=out.concat(walk(c)); return out; })(hosts.splashCardProse).join(' '),
       splashHistNote: hosts.splashHistNote.textContent || '',
       deckCostChildren: hosts.deckCostChart.children.length,
       deckCostNote: hosts.deckCostNote.textContent || '',
