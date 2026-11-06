@@ -103,7 +103,11 @@ const run = new Function('globalThis', 'hosts', code + `
       quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
       warningsLen: hosts.warnings.$html.length,
       splashChildren: hosts.splashChart.children.length,
-      splashChipCount: (hosts.splashChips.$html.match(/class="chip"/g) || []).length,
+      splashPickButtons: ((hosts.splashCardPick.$html || '').match(/data-card=/g) || []).length,
+      splashProse: hosts.splashCardProse.$html || '',
+      splashHistNote: hosts.splashHistNote.textContent || '',
+      deckCostChildren: hosts.deckCostChart.children.length,
+      deckCostNote: hosts.deckCostNote.textContent || '',
       splashTaxCount: (hosts.splashTaxChips.$html.match(/class="chip"/g) || []).length,
       splashTitleLen: (hosts.splashTitle.textContent || hosts.splashTitle.$html || '').length,
       splashLinesLen: (hosts.splashLines.$html || '').length,
@@ -133,7 +137,11 @@ const run = new Function('globalThis', 'hosts', code + `
   if (!out.quitLen) fail.push('quit line missing');
   if (!out.warningsLen) fail.push('warnings missing');
   if (!out.splashChildren) fail.push('splash chart empty');
-  if (out.splashChipCount < 3) fail.push('splash chips missing');
+  if (out.splashPickButtons < 2) fail.push('splash card picker missing');
+  if (!/needs/.test(out.splashProse) || !/turn \$?{?|Typically first online|only |did not come online/.test(out.splashProse)) fail.push('splash card prose missing');
+  if (!out.splashHistNote.includes('FIRST')) fail.push('splash histogram note missing');
+  if (!out.deckCostChildren) fail.push('deck cost chart empty');
+  if (!out.deckCostNote.includes('RAM cost')) fail.push('deck cost note missing');
   if (out.splashTaxCount < 1) fail.push('splash tax chips missing');
   if (!out.splashTitleLen) fail.push('splash title missing');
   if (!out.splashLinesLen) fail.push('splash lines missing');

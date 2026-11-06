@@ -63,17 +63,50 @@
         return `<div class="card"><small><span class="swatch" style="background:${colors[(tier.tier-1)%colors.length]}"></span>Tier ${tier.tier} · typically online</small>`+
           `<b>${esc(fmt(m1))}</b><small>going first · ${esc(fmt(m2))} going second</small></div>`;
       }).join('');
-      // --- composition (moved to top) ---
-      const highTier = result.source_summary_by_tier[String(tiers.at(-1).tier)];
-      $('composition').innerHTML = tiers.map(tier=>{const s=result.source_summary_by_tier[String(tier.tier)];
-        const overlap=Object.keys(tier.faction_requirements).length>1 ?
-          ` ${s.multi_required_faction_sources} cards carry both required factions.` : '';
-        return `<p><strong>Tier ${tier.tier}:</strong> ${s.source_cards} qualifying persistent cards (${pct(s.source_fraction)} of the deck); `+
-          `${Object.entries(s.icons_by_faction).map(([f,n])=>`${n} ${esc(f)} icons`).join(', ')}.${overlap}</p>`;
-      }).join('')+`<p><strong>High-tier sources by RAM cost:</strong> `+
-        Object.entries(highTier.source_by_ram_cost).map(([cost,n])=>`<span class="pill">Cost ${esc(cost)}: ${n}</span>`).join('')+`</p>`+
-        `<p class="hint">${highTier.persistent_cards} non-RAM persistents; ${highTier.script_cards} scripts. Source types: `+
-        Object.entries(highTier.source_by_type).map(([type,n])=>`${n} ${esc(type.toLowerCase())}`).join(', ')+`.</p>`;
+      // --- composition: one deck-wide paragraph (tiers differ only in their needs, which the source lines show) ---
+      const cardOf = id => catalog.cards.find(item => item.id === id);
+      const deckPersistents = result.deck_entries.reduce((sum, e) => sum + (cardOf(e.card_id)?.persistent ? e.copies : 0), 0);
+      const deckScripts = result.deck_size - deckPersistents;
+      $('composition').innerHTML = `<p><strong>The deck:</strong> ${result.deck_size} cards — ${deckPersistents} persistent sources, ${deckScripts} scripts. ` +
+        `Cost profile below; each tier's qualifying sources are listed above the turn chart.</p>`;
+      // Bare deck-cost histogram: copies at each RAM cost, whole cyberdeck.
+      const drawDeckCost = () => {
+        const host = $('deckCostChart');
+        host.replaceChildren();
+        const costs = {};
+        for (const e of result.deck_entries) {
+          const card = cardOf(e.card_id);
+          if (!card || card.type === 'MAINFRAME') continue;
+          const k = card.cost === null || card.cost === undefined ? '—' : String(card.cost);
+          costs[k] = (costs[k] || 0) + e.copies;
+        }
+        const keys = Object.keys(costs).sort((a, b) => (a === '—') - (b === '—') || Number(a) - Number(b));
+        if (!keys.length) return;
+        const tall = host.clientWidth > 0 && host.clientWidth < 430;
+        const w = tall ? 340 : 960, h = tall ? 300 : 240, l = tall ? 46 : 52, r = 16, t = 18, b = 46, fs = 14;
+        const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
+        const slotW = (w - l - r) / keys.length;
+        const maxShare = Math.max(...keys.map(k => costs[k] / result.deck_size));
+        const step = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => maxShare / s <= 4) || 1;
+        const yMax = Math.min(1, Math.ceil(maxShare / step - 1e-9) * step);
+        const sy = y => t + (1 - y / yMax) * (h - t - b);
+        const svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': 'Deck cost profile: copies at each RAM cost' });
+        for (let v = 0; v <= yMax + 1e-9; v += step) {
+          if (v) svg.append(svgNode('line', { x1: l, y1: sy(v), x2: w - r, y2: sy(v), stroke: fillGrid }));
+          svg.append(svgNode('text', { x: l - 9, y: sy(v) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, `${Math.round(v * 100)}%`));
+        }
+        keys.forEach((k, i) => {
+          const x = l + i * slotW + 2, bw = Math.max(4, slotW - 4);
+          const share = costs[k] / result.deck_size;
+          svg.append(svgNode('rect', { x, y: sy(share), width: bw, height: Math.max(0, h - b - sy(share)), fill: '#24C8A5', opacity: .9 }));
+          svg.append(svgNode('text', { x: x + bw / 2, y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, k));
+          svg.append(svgNode('text', { x: x + bw / 2, y: sy(share) - 5, 'text-anchor': 'middle', fill: '#E8ECF1', 'font-size': fs - 1 }, String(costs[k])));        });
+        svg.append(svgNode('text', { x: l - 2, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'RAM cost'));
+        host.append(svg);
+      };
+      drawDeckCost();
+      chartRedraws.push(drawDeckCost);
+      $('deckCostNote').textContent = 'Share of the cyberdeck at each RAM cost (numbers on bars are copy counts). “—” is cards with no RAM cost.';
       // --- source-count lines above the curve chart ---
       $('sourceLines').innerHTML = tiers.map(tier => {
         const s = result.source_summary_by_tier[String(tier.tier)];
@@ -181,7 +214,6 @@
       };
       for (const b of document.querySelectorAll('#splashToggle button'))
         b.addEventListener('click', () => { splashPositionView = b.dataset.pos; markSplashToggle(); renderSplash(); });
-      let maxThreshold = 1;
       let drawSplash = () => {};
       let renderSplash = () => {};
       if (result.splash) {
@@ -205,104 +237,114 @@
         `${pkgStats.persistent} persistent source${pkgStats.persistent === 1 ? '' : 's'}, ${pkgStats.scripts} script${pkgStats.scripts === 1 ? '' : 's'} — carrying ${pkgStats.icons} ` +
         `${esc(result.splash.factions.map(f => f.toLowerCase()).join('/'))} icon${pkgStats.icons === 1 ? '' : 's'}. Not counted in any tier's source list above.</p>`;
       $('splashLines').innerHTML = `<p class="src-line"><b>${result.splash.factions.map(f => f.toLowerCase()).join(' / ')}</b> off-plan for this Mainframe — `+
-        `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}). `+
-        `${splashPayoffs.length} payoff${splashPayoffs.length === 1 ? '' : 's'} tracked — each card's requirement and play odds are in the table under the turn chips.</p>`;
+        `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}).</p>`;
+      // Card picker: inspect one splash payoff at a time.
+      let splashCardView = splashPayoffs[0]?.card_id || null;
+      const markSplashCardPick = () => {
+        for (const b of document.querySelectorAll('#splashCardPick button')) {
+          const on = b.dataset.card === splashCardView;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        }
+      };
+      $('splashCardPick').innerHTML = splashPayoffs.map(p =>
+        `<button type="button" data-card="${esc(p.card_id)}" aria-pressed="false">${esc(p.name)}</button>`).join('');
+      for (const b of document.querySelectorAll('#splashCardPick button'))
+        b.addEventListener('click', () => { splashCardView = b.dataset.card; markSplashCardPick(); renderSplash(); });
+      markSplashCardPick();
+      // Splash inspection: one card at a time — requirement prose + first-online histogram.
       drawSplash = () => {
         const host = $('splashChart');
         host.replaceChildren();
-        if (!result.splash) return;
+        const payoff = splashPayoffs.find(p => p.card_id === splashCardView) || splashPayoffs[0];
+        if (!payoff) return;
+        const row = (result.card_first_play || []).find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === maxTurn);
+        if (!row) return;
+        const counts = row.first_turn_counts || {}, never = row.never_count || 0;
+        const total = row.trials;
         const tall = host.clientWidth > 0 && host.clientWidth < 430;
-        const w = tall ? 340 : 960, h = tall ? 430 : 400, l = tall ? 46 : 52, r = tall ? 16 : 96, t = 20, b = 46;
-        const fs = 14;
+        const w = tall ? 340 : 960, h = tall ? 360 : 300, l = tall ? 46 : 52, r = 16, t = 18, b = 46, fs = 14;
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
-        const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
-        const sy = y => t + (1 - y) * (h - t - b);
-        const svg = svgNode('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img',
-          'aria-label': 'Splash payoff play/online curves and board-icon supply by turn' });
-        for (const value of [0, .25, .5, .75, 1]) {
-          if (value) svg.append(svgNode('line', { x1: l, y1: sy(value), x2: w - r, y2: sy(value), stroke: fillGrid }));
-          svg.append(svgNode('text', { x: l - 9, y: sy(value) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, (value * 100) + '%'));
+        const turnNums = Array.from({ length: maxTurn }, (_, i) => i + 1);
+        const slotW = (w - l - r) / (maxTurn + 1);  // +1 slot for “not by horizon”
+        const maxShare = Math.max(...turnNums.map(t => (counts[t] || 0) / total), never / total, 0.05);
+        const step = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => maxShare / s <= 5) || 1;
+        const yMax = Math.min(1, Math.ceil(maxShare / step - 1e-9) * step);
+        const sy = y => t + (1 - y / yMax) * (h - t - b);
+        const sx = t2 => l + (t2 - 1) * slotW;
+        const svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img',
+          'aria-label': `Which turn ${payoff.name} first came online, going ${splashPositionView === 'first' ? 'first' : 'second'}` });
+        for (let v = 0; v <= yMax + 1e-9; v += step) {
+          if (v) svg.append(svgNode('line', { x1: l, y1: sy(v), x2: w - r, y2: sy(v), stroke: fillGrid }));
+          svg.append(svgNode('text', { x: l - 9, y: sy(v) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, `${Math.round(v * 100)}%`));
         }
-        const stride = maxTurn > 16 ? 4 : maxTurn > 8 ? 2 : 1;
-        for (let x = 1; x <= maxTurn; x += stride) {
-          svg.append(svgNode('line', { x1: sx(x), y1: h - b, x2: sx(x), y2: h - b + 6, stroke: fillGrid }));
-          svg.append(svgNode('text', { x: sx(x), y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, String(x)));
-        }
-        svg.append(svgNode('text', { x: l + 22, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'Turn'));
-        // Resource context: share of games with enough icons on board (solid,
-        // muted) — the supply line that explains late payoff curves.
-        const iconRows = result.splash.icons[splashPositionView];
-        const maxThreshold = Math.max(...splashPayoffs.map(p =>
-          Math.max(...Object.values(p.requirement || { x: 1 }))));
-        if (iconRows.length) {
-          const parts = ['M ' + sx(iconRows[0].turn) + ' ' + sy(iconRows[0].at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0)];
-          for (const row of iconRows.slice(1))
-            parts.push('H ' + sx(row.turn) + ' V ' + sy(row.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0));
-          svg.append(svgNode('path', { d: parts.join(' '), fill: 'none', stroke: '#7B8992', 'stroke-width': 2 }));
-          const last = iconRows[iconRows.length - 1];
-          svg.append(svgNode('text', { x: sx(last.turn) + 9, y: sy(last.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0) + 5,
-            'text-anchor': 'start', fill: '#7B8992', 'font-size': fs }, `board has ${maxThreshold}+ icons`));
-        }
-        // Payoff curves: dashed for scripts (played once), solid for persistents.
-        splashPayoffs.forEach((payoff, index) => {
-          const series = result.splash.curves.filter(r => r.card_id === payoff.card_id && r.position === splashPositionView)
-            .sort((a2, b2) => a2.turn - b2.turn);
-          if (!series.length) return;
-          const color = colors[(index + 4) % colors.length];
-          const parts = ['M ' + sx(series[0].turn) + ' ' + sy(series[0].probability)];
-          for (let i = 1; i < series.length; i++)
-            parts.push('H ' + sx(series[i].turn) + ' V ' + sy(series[i].probability));
-          const attrs = { d: parts.join(' '), fill: 'none', stroke: color, 'stroke-width': 2.5, 'stroke-linejoin': 'round' };
-          if (!payoff.persistent) attrs['stroke-dasharray'] = '8 5';          svg.append(svgNode('path', attrs));
-          const last = series[series.length - 1];
-          svg.append(svgNode('text', { x: sx(last.turn) + 9, y: sy(last.probability) + 5, 'text-anchor': 'start',
-            fill: color, 'font-size': fs + 1, 'font-weight': 700 },
-            payoff.name + ' · ' + last.turn));
+        turnNums.forEach(turn => {
+          const count = counts[turn] || 0, share = count / total;
+          const x = sx(turn) + 2, bw = Math.max(4, slotW - 4);
+          if (count) {
+            svg.append(svgNode('rect', { x, y: sy(share), width: bw, height: Math.max(0, h - b - sy(share)), fill: '#24C8A5', opacity: .9 }));
+            svg.append(svgNode('text', { x: x + bw / 2, y: sy(share) - 5, 'text-anchor': 'middle', fill: '#E8ECF1', 'font-size': fs - 1 }, pct(share)));
+          }
+          svg.append(svgNode('text', { x: x + bw / 2, y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, String(turn)));
         });
+        // Honest bar for games where it never happened inside the horizon.
+        const xNever = l + maxTurn * slotW + 2, bwNever = Math.max(4, slotW - 4);
+        const shareNever = never / total;
+        if (never) {
+          svg.append(svgNode('rect', { x: xNever, y: sy(shareNever), width: bwNever, height: Math.max(0, h - b - sy(shareNever)), fill: '#7B8992', opacity: .8 }));
+          svg.append(svgNode('text', { x: xNever + bwNever / 2, y: sy(shareNever) - 5, 'text-anchor': 'middle', fill: '#E8ECF1', 'font-size': fs - 1 }, pct(shareNever)));
+        }
+        svg.append(svgNode('text', { x: xNever + bwNever / 2, y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs - 2 }, 'not by ' + maxTurn));
+        svg.append(svgNode('text', { x: l - 2, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'First online'));
         host.append(svg);
       };
       drawSplash();
       chartRedraws.push(drawSplash);
       renderSplash = () => {
         drawSplash();
-        if (!result.splash) { $('splashChips').innerHTML = ''; $('splashTaxChips').innerHTML = ''; $('splashNote').textContent = ''; return; }
-        const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
-        $('splashChips').innerHTML = splashPayoffs.map(payoff => {
-          const row = result.splash.curves.find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === turn);
-          if (!row) return '';
-          const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
-          const color = colors[(splashPayoffs.indexOf(payoff) + 4) % colors.length];
-          return '<div class="chip" title="' + esc(payoff.name) + ' ' + (payoff.persistent ? 'online' : 'played') +
-            ' by turn ' + turn + ', going ' + splashPositionView + ': ' + pct(row.probability) + ' ± ' + (100 * se).toFixed(1) + '% (standard error)">' +
-            '<span class="k">' + esc(payoff.name) + (payoff.persistent ? ' online' : ' played') + ' · turn ' + turn + ' · ' + splashPositionView + '</span>' +
-            '<span class="v" style="color:' + color + '">' + pct(row.probability) + '</span>' +
-            '<span class="sub">' + (payoff.persistent ? 'installed on board' : 'script, played once') + '</span></div>';
-        }).join('') +
-          (() => {
-            const iconRow = result.splash.icons[splashPositionView].find(r => r.turn === turn);
-            if (!iconRow) return '';
-            return '<div class="chip"><span class="k">' + esc(result.splash.factions.join(' + ').toLowerCase()) +
-              ' icons on board · turn ' + turn + ' · ' + splashPositionView + '</span>' +
-              '<span class="v">' + iconRow.mean_icons.toFixed(1) + '</span>' +
-              '<span class="sub">average; ' + pct(iconRow.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0) +
-              ' of games reach ' + maxThreshold + '+</span></div>';
-          })();
-        // Splash tax: real deck vs neutral-filler swap at the same budget.
+        if (!result.splash) { $('splashCardProse').innerHTML = ''; $('splashTaxChips').innerHTML = ''; $('splashHistNote').textContent = ''; $('splashNote').textContent = ''; return; }
+        const payoff = splashPayoffs.find(p => p.card_id === splashCardView) || splashPayoffs[0];
+        if (!payoff) return;
+        const row = (result.card_first_play || []).find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === maxTurn);
+        const need = Object.entries(payoff.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+        const sourceLine = result.deck_entries.filter(e => {
+          const card = catalog.cards.find(item => item.id === e.card_id);
+          return card && card.persistent && card.factions.some(f => Object.keys(payoff.requirement || {}).includes(f));
+        }).reduce((sum, e) => sum + e.copies, 0);
+        // Typical first-online turn (median of the histogram).
+        let typical = null;
+        if (row) {
+          let cum = 0;
+          for (let t = 1; t <= maxTurn; t++) {
+            cum += (row.first_turn_counts || {})[t] || 0;
+            if (cum >= row.trials / 2) { typical = t; break; }
+          }
+        }
+        const cost = catalog.cards.find(item => item.id === payoff.card_id)?.cost ?? payoff.cost ?? '?';
+        const kind = payoff.persistent ? 'installed and stays online' : 'a script — played once, then gone';
+        const reachedShare = row ? row.reached_count / row.trials : 0;
+        const timing = !row ? 'No simulation data for this card.' :
+          reachedShare >= 0.5 ? `Typically first online: <b>turn ${typical ?? '—'}</b> going ${splashPositionView === 'first' ? 'first' : 'second'}; ${pct(reachedShare)} of games had it online by turn ${maxTurn}.` :
+          reachedShare > 0 ? `It comes online in only ${pct(reachedShare)} of games by turn ${maxTurn} going ${splashPositionView === 'first' ? 'first' : 'second'}${typical !== null ? ` — typically turn ${typical} when it does` : ''}.` :
+          `It did not come online in any simulated game within ${maxTurn} turns going ${splashPositionView === 'first' ? 'first' : 'second'} — check whether another card of the same type takes the board slot first (the simulator deploys one environment at a time, cheapest first).`;
+        $('splashCardProse').innerHTML = `<p class="src-line"><b>${esc(payoff.name)}</b> (${kind}) needs ` +
+          `<span class="req">${esc(need)} icons</span> on the board plus its ${cost} RAM cost — ` +
+          `the deck carries ${sourceLine} qualifying persistent sources. ${timing}</p>`;
+        $('splashHistNote').textContent = `Share of simulated games by the turn ${payoff.name} FIRST came online` +
+          ` (requirement met and ${payoff.persistent ? 'installed' : 'played'}). The gray bar is games where it never happened within your ${maxTurn}-turn horizon.`;
+        // Splash tax: real deck vs neutral-filler swap at the same budget, at the horizon.
         const taxRows = result.splash.tax ? tiers.map(tier => {
-          const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === turn);
-          const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === turn);
+          const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);
+          const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);
           return { tier, base, neutral };
         }).filter(r => r.base && r.neutral) : [];
-        $('splashTaxChips').innerHTML = taxRows.length ? taxRows.map(row => {
-          const delta = (row.neutral.probability - row.base.probability) * 100;
-          const verdict = delta <= 0.05 ? 'no cost' : 'costs ' + delta.toFixed(1) + 'pts';
-          return '<div class="chip"><span class="k">splash tax · tier ' + row.tier.tier + ' · by turn ' + turn + ' · ' + splashPositionView + '</span>' +
+        $('splashTaxChips').innerHTML = taxRows.length ? taxRows.map(tax => {
+          const delta = (tax.neutral.probability - tax.base.probability) * 100;
+          return '<div class="chip"><span class="k">splash tax · tier ' + tax.tier.tier + ' · by turn ' + maxTurn + ' · ' + splashPositionView + '</span>' +
             '<span class="v">' + (delta <= 0.05 ? '±0.0' : '+' + delta.toFixed(1)) + 'pts</span>' +
-            '<span class="sub">tiers reach ' + pct(row.base.probability) + ' here vs ' + pct(row.neutral.probability) + ' without the package</span></div>';
+            '<span class="sub">tiers reach ' + pct(tax.base.probability) + ' here vs ' + pct(tax.neutral.probability) + ' without the package</span></div>';
         }).join('') : '';
-        $('splashNote').textContent = 'Payoff curves are dashed for scripts (played once, then gone) and solid for persistents (installed). ' +
-          'The gray supply line is the share of games whose board carried enough icons for the largest payoff. ' +
-          'Tracking nudges the simulated player to deploy splash pieces, protects them in the opening-hand keep, and raises the auto RAM budget when a payoff needs the headroom. ' +
+        $('splashNote').textContent = 'The simulated player is nudged to deploy splash pieces, protects them in the opening-hand keep, and raises the auto RAM budget when a payoff needs the headroom. ' +
           'Splash tax compares this deck against the same deck with the package swapped for neutral fillers at the same RAM budget — ' +
           'it is what the package costs your tiers, not what it pays you back.';
       };

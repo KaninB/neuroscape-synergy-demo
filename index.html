@@ -240,7 +240,9 @@
         <div class="section-head"><div><h2 id="resultTitle">Results</h2><p id="resultSubtitle" class="muted"></p></div><div><button type="button" class="secondary" id="csvDownload">Download turn table (CSV)</button> <button type="button" class="secondary" id="download">Download JSON</button></div></div>
         <div id="verdict" class="verdict"></div>
         <div id="warnings" class="note"></div>
-        <div class="section"><h2>What is in this deck?</h2><div id="composition"></div></div>
+        <div class="section"><h2>What is in this deck?</h2><div id="composition"></div>
+          <div class="chart-box"><div id="deckCostChart"></div></div>
+          <p class="hint" id="deckCostNote"></p></div>
         <div class="section"><h2>Played out — when tiers come online</h2>
           <div class="segmented" id="positionToggle" role="group" aria-label="Which position to chart">
             <button type="button" data-pos="first" class="on" aria-pressed="true">Going first</button>
@@ -263,8 +265,10 @@
             <button type="button" data-pos="first" class="on" aria-pressed="true">Going first</button>
             <button type="button" data-pos="second" aria-pressed="false">Going second</button>
           </div>
+          <div class="segmented" id="splashCardPick" role="group" aria-label="Which splash payoff to inspect"></div>
+          <div id="splashCardProse"></div>
           <div class="chart-box"><div id="splashChart"></div></div>
-          <div id="splashChips" class="chips"></div>
+          <p class="hint" id="splashHistNote"></p>
           <div id="splashTaxChips" class="chips"></div>
           <p class="hint" id="splashNote"></p>
         </div>
@@ -280,6 +284,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261105-8"></script><script src="engine.js?v=20261105-8"></script><script src="app.js?v=20261105-8"></script>
+  <script src="catalog.js?v=20261105-9"></script><script src="engine.js?v=20261105-9"></script><script src="app.js?v=20261105-9"></script>
 </body>
 </html>

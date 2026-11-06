@@ -596,16 +596,14 @@
     const payoffs = splash ? splash.payoffs : [];
     const factions = splash ? splash.factions : [];
     const reqHits = new Map(), iconTotals = {}, iconAtLeast = {};
+    const firstHitTurns = new Map();  // card|position -> {turn -> count, never: count}
+    const firstHits = new Map();  // card|position -> turn (or 'never') -> game count
     const thresholds = splash ? splash.thresholds : [];
     // First-play telemetry for EVERY requirement-bearing card in the deck
     // (not just tracked splash payoffs): the requirement table shows when any
     // card's printed requirement was satisfiable-and-played, even untracked.
     const reqCards = [...new Map(deck.filter(card => Object.keys(card.requirements || {}).length)
       .map(card => [card.id, card])).values()].sort((a, b) => a.name.localeCompare(b.name));
-    // Installed RAM at the moment the first persistent splash payoff came
-    // online — the splash variant of the tier RAM histograms.
-    const ramAtSplash = { first: [], second: [] };
-    const splashPersistent = payoffs.filter(card => card.persistent);
     for (const position of ['first', 'second']) {
       iconTotals[position] = {}; iconAtLeast[position] = {};
       for (let turn = 1; turn <= turns; turn++) {
@@ -620,17 +618,19 @@
           splash ? { factions, payoffs } : null);
         for (const card of reqCards) {
           const hit = state.reqTurns[card.id];
-          if (hit !== undefined)
+          const hk = `${card.id}|${position}`;
+          const bucket = firstHitTurns.get(hk) || firstHitTurns.set(hk, { never: 0 }).get(hk);
+          if (hit !== undefined) {
             for (let turn = hit; turn <= turns; turn++) {
               const k = `${card.id}|${position}|${turn}`;
               reqHits.set(k, (reqHits.get(k) || 0) + 1);
             }
+            bucket[hit] = (bucket[hit] || 0) + 1;
+          } else {
+            bucket.never++;
+          }
         }
         if (splash) {
-          if (splashPersistent.length) {
-            const firstHit = Math.min(...splashPersistent.map(card => state.reqTurns[card.id]).filter(t => t !== undefined));
-            if (Number.isFinite(firstHit)) ramAtSplash[position].push(state.ramInstalled);
-          }
           for (let turn = 1; turn <= turns; turn++) {
             const counts = state.boardIcons[turn] || {};
             let total = 0;
@@ -756,22 +756,25 @@
     }
     // Splash variant of the RAM histogram: installed RAM when the first
     // persistent splash payoff came online (only meaningful when tracked).
-    const splashRam = splash ? {
-      note_n: { first: ramAtSplash.first.length, second: ramAtSplash.second.length },
-      installed_bins: {
-        first: bin(ramAtSplash.first), second: bin(ramAtSplash.second)
-      }
-    } : null;
-    // Card requirement telemetry for the requirement table: first-play curves
-    // for EVERY requirement-bearing card in the deck (splash or not).
+    // Splash variant of the RAM histogram: REMOVED (owner: "isn't awesome" —
+    // the deck is built around the package, so the number duplicates what the
+    // per-card turn histograms say better).
+    const splashRam = null;
+    // Card requirement telemetry: cumulative play/online curves AND first-hit
+    // turn histograms for EVERY requirement-bearing card in the deck.
     const cardFirstPlay = [];
-    for (const card of reqCards) for (const position of ['first', 'second'])
+    for (const card of reqCards) for (const position of ['first', 'second']) {
+      const dist = firstHitTurns.get(`${card.id}|${position}`) || { never: 0 };
+      const firstTurnCounts = {};
+      for (let turn = 1; turn <= turns; turn++) firstTurnCounts[turn] = dist[turn] || 0;
       for (let turn = 1; turn <= turns; turn++) {
         const reached = reqHits.get(`${card.id}|${position}|${turn}`) || 0;
         cardFirstPlay.push({ card_id: card.id, name: card.name, persistent: !!card.persistent,
           factions: card.factions, requirement: card.requirements, cost: card.cost,
-          position, turn, reached_count: reached, trials, probability: reached / trials });
+          position, turn, reached_count: reached, trials, probability: reached / trials,
+          first_turn_counts: firstTurnCounts, never_count: dist.never });
       }
+    }
     const warnings = [LIMITS];
     if (splash && !payoffs.length)
       warnings.push('The tracked splash package has no requirement-bearing payoffs; only board icons are shown.');
@@ -788,7 +791,6 @@
       draw_only: drawOnly, curves,
       card_first_play: cardFirstPlay,
       ram_to_tier: ramToTier,
-      splash_ram: splashRam,
       splash: splash ? { factions: splash.factions, payoffs: payoffs.map(card => ({ card_id: card.id, name: card.name,
         persistent: !!card.persistent, requirement: card.requirements })),
       curves: splashCurves, icons: splashIcons, tax: splashTax } : null,
