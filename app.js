@@ -29,8 +29,6 @@
     const chartRedraws = [];
     const catalog = globalThis.NEUROSCAPE_CATALOG;
     const engine = globalThis.NEUROSCAPE_ENGINE;
-    const FACTION_GLYPH = { HACKER:'⌘', 'A.I.':'◉', ANARCHIST:'✊', WONDERLAND:'Rabbit', CYBERNETIC:'⚙', ANIMAL:'🐾',
-      THRASHER:'🎸', MECH:'🦾', RAVER:'♪', CORPO:'♟', ROBOT:'🤖', GAMBLER:'🎲', POLITICIAN:'📜', DUSTRUNNER:'☄', MYSTIC:'✦', NANOBOT:'⬡' };
     let latest = null, currentParse = null;
     const pct = value => `${(100 * value).toFixed(1)}%`;
     const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -158,7 +156,7 @@
       drawCurve();
       chartRedraws.push(drawCurve);
       // --- position toggle (first / second only) ---
-      const applyPositionView = () => {
+      let applyPositionView = () => {
         for (const b of document.querySelectorAll('#positionToggle button')) {
           const on = b.dataset.pos === positionView;
           b.classList.toggle('on', on);
@@ -171,18 +169,44 @@
       // --- dedicated splash section (only when a package was tracked) ---
       $('splashSection').hidden = !result.splash;
       const splashPayoffs = result.splash ? result.splash.payoffs : [];
+      // The splash section has its own Going first / Going second toggle,
+      // independent of the main chart's toggle above.
+      let splashPositionView = 'first';
+      const markSplashToggle = () => {
+        for (const b of document.querySelectorAll('#splashToggle button')) {
+          const on = b.dataset.pos === splashPositionView;
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-pressed', String(on));
+        }
+      };
+      for (const b of document.querySelectorAll('#splashToggle button'))
+        b.addEventListener('click', () => { splashPositionView = b.dataset.pos; markSplashToggle(); renderSplash(); });
       let maxThreshold = 1;
       let drawSplash = () => {};
       let renderSplash = () => {};
       if (result.splash) {
+      markSplashToggle();
       $('splashTitle').textContent = `Splash — ${result.splash.factions.join(' + ').toLowerCase()} package`;
-      const splashCardCopies = result.deck_entries.filter(entry => {
+      const pkgEntries = result.deck_entries.filter(entry => {
         const card = catalog.cards.find(item => item.id === entry.card_id);
         return card && result.splash.factions.some(f => card.factions.includes(f)) && card.type !== 'MAINFRAME';
-      }).reduce((sum, entry) => sum + entry.copies, 0);
+      });
+      const splashCardCopies = pkgEntries.reduce((sum, entry) => sum + entry.copies, 0);
+      // Splash variant of the composition section: what the package holds.
+      const pkgStats = pkgEntries.reduce((acc, entry) => {
+        const card = catalog.cards.find(item => item.id === entry.card_id);
+        acc.persistent += card.persistent ? entry.copies : 0;
+        acc.scripts += card.persistent ? 0 : entry.copies;
+        acc.icons += entry.copies * card.factions.filter(f => result.splash.factions.includes(f)).length;
+        return acc;
+      }, { persistent: 0, scripts: 0, icons: 0 });
+      const splashFactionWord = esc(result.splash.factions.map(f => f.toLowerCase()).join(' + '));
+      $('composition').innerHTML += `<p><strong>Splash (${splashFactionWord}):</strong> ${splashCardCopies} copies — ` +
+        `${pkgStats.persistent} persistent source${pkgStats.persistent === 1 ? '' : 's'}, ${pkgStats.scripts} script${pkgStats.scripts === 1 ? '' : 's'} — carrying ${pkgStats.icons} ` +
+        `${esc(result.splash.factions.map(f => f.toLowerCase()).join('/'))} icon${pkgStats.icons === 1 ? '' : 's'}. Not counted in any tier's source list above.</p>`;
       $('splashLines').innerHTML = `<p class="src-line"><b>${result.splash.factions.map(f => f.toLowerCase()).join(' / ')}</b> off-plan for this Mainframe — `+
-        `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}). Payoffs tracked: `+
-        `${splashPayoffs.map(p => `${esc(p.name)}${p.persistent ? '' : ' (played, not installed)'}`).join(', ') || 'none'}.</p>`;
+        `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}). `+
+        `${splashPayoffs.length} payoff${splashPayoffs.length === 1 ? '' : 's'} tracked — each card's requirement and play odds are in the table under the turn chips.</p>`;
       drawSplash = () => {
         const host = $('splashChart');
         host.replaceChildren();
@@ -207,7 +231,7 @@
         svg.append(svgNode('text', { x: l + 22, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'Turn'));
         // Resource context: share of games with enough icons on board (solid,
         // muted) — the supply line that explains late payoff curves.
-        const iconRows = result.splash.icons[positionView];
+        const iconRows = result.splash.icons[splashPositionView];
         const maxThreshold = Math.max(...splashPayoffs.map(p =>
           Math.max(...Object.values(p.requirement || { x: 1 }))));
         if (iconRows.length) {
@@ -221,7 +245,7 @@
         }
         // Payoff curves: dashed for scripts (played once), solid for persistents.
         splashPayoffs.forEach((payoff, index) => {
-          const series = result.splash.curves.filter(r => r.card_id === payoff.card_id && r.position === positionView)
+          const series = result.splash.curves.filter(r => r.card_id === payoff.card_id && r.position === splashPositionView)
             .sort((a2, b2) => a2.turn - b2.turn);
           if (!series.length) return;
           const color = colors[(index + 4) % colors.length];
@@ -244,37 +268,37 @@
         if (!result.splash) { $('splashChips').innerHTML = ''; $('splashTaxChips').innerHTML = ''; $('splashNote').textContent = ''; return; }
         const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
         $('splashChips').innerHTML = splashPayoffs.map(payoff => {
-          const row = result.splash.curves.find(r => r.card_id === payoff.card_id && r.position === positionView && r.turn === turn);
+          const row = result.splash.curves.find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === turn);
           if (!row) return '';
           const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
           const color = colors[(splashPayoffs.indexOf(payoff) + 4) % colors.length];
           return '<div class="chip" title="' + esc(payoff.name) + ' ' + (payoff.persistent ? 'online' : 'played') +
-            ' by turn ' + turn + ', going ' + positionView + ': ' + pct(row.probability) + ' ± ' + (100 * se).toFixed(1) + '% (standard error)">' +
-            '<span class="k">' + esc(payoff.name) + (payoff.persistent ? ' online' : ' played') + ' · turn ' + turn + ' · ' + positionView + '</span>' +
+            ' by turn ' + turn + ', going ' + splashPositionView + ': ' + pct(row.probability) + ' ± ' + (100 * se).toFixed(1) + '% (standard error)">' +
+            '<span class="k">' + esc(payoff.name) + (payoff.persistent ? ' online' : ' played') + ' · turn ' + turn + ' · ' + splashPositionView + '</span>' +
             '<span class="v" style="color:' + color + '">' + pct(row.probability) + '</span>' +
             '<span class="sub">' + (payoff.persistent ? 'installed on board' : 'script, played once') + '</span></div>';
         }).join('') +
           (() => {
-            const iconRow = result.splash.icons[positionView].find(r => r.turn === turn);
+            const iconRow = result.splash.icons[splashPositionView].find(r => r.turn === turn);
             if (!iconRow) return '';
             return '<div class="chip"><span class="k">' + esc(result.splash.factions.join(' + ').toLowerCase()) +
-              ' icons on board · turn ' + turn + ' · ' + positionView + '</span>' +
+              ' icons on board · turn ' + turn + ' · ' + splashPositionView + '</span>' +
               '<span class="v">' + iconRow.mean_icons.toFixed(1) + '</span>' +
               '<span class="sub">average; ' + pct(iconRow.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0) +
               ' of games reach ' + maxThreshold + '+</span></div>';
           })();
         // Splash tax: real deck vs neutral-filler swap at the same budget.
         const taxRows = result.splash.tax ? tiers.map(tier => {
-          const base = curves.find(r => r.tier === tier.tier && r.position === positionView && r.turn === turn);
-          const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === positionView && r.turn === turn);
+          const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === turn);
+          const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === turn);
           return { tier, base, neutral };
         }).filter(r => r.base && r.neutral) : [];
         $('splashTaxChips').innerHTML = taxRows.length ? taxRows.map(row => {
-          const delta = (row.neutral - row.base.probability) * 100;
+          const delta = (row.neutral.probability - row.base.probability) * 100;
           const verdict = delta <= 0.05 ? 'no cost' : 'costs ' + delta.toFixed(1) + 'pts';
-          return '<div class="chip"><span class="k">splash tax · tier ' + row.tier.tier + ' · by turn ' + turn + ' · ' + positionView + '</span>' +
+          return '<div class="chip"><span class="k">splash tax · tier ' + row.tier.tier + ' · by turn ' + turn + ' · ' + splashPositionView + '</span>' +
             '<span class="v">' + (delta <= 0.05 ? '±0.0' : '+' + delta.toFixed(1)) + 'pts</span>' +
-            '<span class="sub">tiers reach ' + pct(row.base.probability) + ' here vs ' + pct(row.neutral) + ' without the package</span></div>';
+            '<span class="sub">tiers reach ' + pct(row.base.probability) + ' here vs ' + pct(row.neutral.probability) + ' without the package</span></div>';
         }).join('') : '';
         $('splashNote').textContent = 'Payoff curves are dashed for scripts (played once, then gone) and solid for persistents (installed). ' +
           'The gray supply line is the share of games whose board carried enough icons for the largest payoff. ' +
@@ -300,6 +324,29 @@
       }
       $('milestoneTurn').addEventListener('input', renderChips);
       renderChips();
+      // --- requirement table: every requirement-bearing card in the deck ---
+      const reqRows = result.card_first_play || [];
+      const reqNames = [...new Set(reqRows.map(r => r.name))].sort((a, b) => a.localeCompare(b));
+      function renderReqTable() {
+        const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
+        const posWord = positionView === 'first' ? 'first' : 'second';
+        if (!reqNames.length) { $('reqTable').innerHTML = '<p class="hint">No cards in this deck carry printed faction requirements.</p>'; return; }
+        $('reqTable').innerHTML = `<div class="table-scroll"><table><thead><tr><th>Card</th><th>Kind</th><th>Faction</th><th>Needs</th><th>Cost</th><th>Played/online by turn ${turn} (${posWord})</th></tr></thead><tbody>` +
+          reqNames.map(name => {
+            const r0 = reqRows.find(r => r.name === name);
+            const row = reqRows.find(r => r.name === name && r.position === positionView && r.turn === turn);
+            const need = Object.entries(r0.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+            const faction = (r0.factions || []).map(f => f.toLowerCase()).join(' / ');
+            return `<tr><td>${esc(name)}</td><td>${r0.persistent ? 'persistent' : 'script'}</td><td>${esc(faction)}</td><td>${esc(need)}</td><td>${r0.cost ?? '—'}</td>` +
+              `<td>${row ? (row.probability ? pct(row.probability) : '0%') : '—'}</td></tr>`;
+          }).join('') + '</tbody></table></div>' +
+          '<p class="hint">Simulation odds at the turn picked above, going ' + posWord + '. ' +
+          'Scripts are PLAYED (their effects are not simulated); persistents are INSTALLED and stay online. ' +
+          'Curves per card live in the splash section only for tracked packages.</p>';
+      }
+      renderReqTable();
+      $('milestoneTurn').addEventListener('input', renderReqTable);
+      applyPositionView = (orig => () => { orig(); renderReqTable(); })(applyPositionView);
       // --- opening hand lines (exact hypergeometric mean/SD + exact qualify share) ---
       const N = result.deck_size, n = 5;
       $('handLines').innerHTML = tiers.map(tier => {
@@ -313,6 +360,24 @@
         return `<p class="hand-line"><b>Tier ${tier.tier}</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> of the ${K} qualifying sources `+
           `<span class="hint">(needs ${esc(need)} + ${tier.board_requirement} board)</span> — <span class="big">${pct(joint.joint_threshold_probability)}</span> of hands already qualify.</p>`;
       }).join('');
+      if (result.splash) {
+        // Splash variant of the opening-hand section: package pieces in a
+        // random opening 5, exact hypergeometric math like the tier lines.
+        // Derived from result.deck_entries so render() stays self-contained.
+        const pkgDeck = result.deck_entries.flatMap(entry => {
+          const card = catalog.cards.find(item => item.id === entry.card_id);
+          return card && result.splash.factions.some(f => card.factions.includes(f)) && card.type !== 'MAINFRAME'
+            ? Array(entry.copies).fill(card) : [];
+        });
+        if (pkgDeck.length) {
+          const K = pkgDeck.length, mean = n * K / N, sd = Math.sqrt(n * (K/N) * (1 - K/N) * (N - n) / (N - 1));
+          const pk = k => engine.choose(K, k) * engine.choose(N - K, n - k) / engine.choose(N, n);
+          const pAny = 1 - pk(0);
+          const splashWord = esc(result.splash.factions.map(f => f.toLowerCase()).join(' + '));
+          $('handLines').innerHTML += `<p class="hand-line"><b>Splash (${splashWord})</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> package cards `+
+            `<span class="hint">(${K} in the deck)</span> — <span class="big">${pct(pAny)}</span> of hands hold at least one.</p>`;
+        }
+      }
       // --- installed RAM when the synergy came online (one tier at a time) ---
       const ramData = result.ram_to_tier || null;
       const medianOf = bins => {
@@ -325,18 +390,21 @@
         return null;
       };
       let ramTierView = null;
+      const splashRamData = result.splash_ram || null;
       $('ramTierToggle').innerHTML = tierNums.map(tier =>
-        `<button type="button" data-tier="${tier}" aria-pressed="false">Tier ${tier}</button>`).join('');
+        `<button type="button" data-tier="${tier}" aria-pressed="false">Tier ${tier}</button>`).join('') +
+        ((splashRamData && (splashRamData.note_n.first + splashRamData.note_n.second) > 0) ?
+          '<button type="button" data-tier="splash" aria-pressed="false">Splash</button>' : '');
       const markRamToggle = () => {
         for (const b of document.querySelectorAll('#ramTierToggle button')) {
-          const on = Number(b.dataset.tier) === ramTierView;
+          const on = String(b.dataset.tier) === String(ramTierView);
           b.classList.toggle('on', on);
           b.setAttribute('aria-pressed', String(on));
         }
       };
       for (const b of document.querySelectorAll('#ramTierToggle button'))
         b.addEventListener('click', () => {
-          ramTierView = Number(b.dataset.tier);
+          ramTierView = b.dataset.tier === 'splash' ? 'splash' : Number(b.dataset.tier);
           markRamToggle();
           renderRam();
         });
@@ -348,6 +416,11 @@
           const d = ramData[positionView][String(tier)];
           return d && d.installed_bins ? { tier, bins: d.installed_bins, n: d.n } : null;
         }).filter(Boolean);
+        if (splashRamData) {
+          const bins = splashRamData.installed_bins[positionView] || {};
+          const n = Object.values(bins).reduce((a, c) => a + c, 0);
+          if (n) data.push({ tier: 'splash', bins, n });
+        }
         const toggle = $('ramTierToggle');
         if (!data.length) {
           toggle.hidden = true;
@@ -359,11 +432,14 @@
         markRamToggle();
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
         const d = data.find(x => x.tier === ramTierView);
-        const color = colors[(d.tier-1)%colors.length];
+        const isSplashView = d.tier === 'splash';
+        const color = isSplashView ? '#7B8992' : colors[(d.tier-1)%colors.length];
         const total = Object.values(d.bins).reduce((a, c) => a + c, 0);
         const shareOf = v => (d.bins[v] || 0) / total;
         const med = medianOf(d.bins);
-        $('ramNote').textContent = `How much RAM the simulated player had installed when Tier ${d.tier}'s synergy clicked — going ${positionView === 'first' ? 'first' : 'second'} (n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} reaching games). Dashed line: typical (median) RAM${med !== null ? ' = ' + med : ''}. Bars far right = the tier waits on RAM installs; a late curve with bars far left = the tier waits on pieces.`;
+        $('ramNote').textContent = isSplashView ?
+          `How much RAM the simulated player had installed when the first splash payoff came online — going ${positionView === 'first' ? 'first' : 'second'} (n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} games). Dashed line: typical (median) RAM${med !== null ? ' = ' + med : ''}. This describes the tracked package, not a tier.` :
+          `How much RAM the simulated player had installed when Tier ${d.tier}'s synergy clicked — going ${positionView === 'first' ? 'first' : 'second'} (n = ${d.n.toLocaleString()} of ${trials.toLocaleString()} reaching games). Dashed line: typical (median) RAM${med !== null ? ' = ' + med : ''}. Bars far right = the tier waits on RAM installs; a late curve with bars far left = the tier waits on pieces.`;
         // Plot the full plausible range 0 → max observed, including empty
         // slots: gaps between spikes are real structure (those RAM values are
         // rarely held at click time), not missing data, so show them at zero.
@@ -421,7 +497,7 @@
           hover.setAttribute('y', sy(count ? shareOf(v) : 0));
           hover.setAttribute('height', Math.max(0, h - b - sy(count ? shareOf(v) : 0)));
           hover.setAttribute('visibility', 'visible');
-          tip.innerHTML = `<b style="color:${color}">Tier ${d.tier} · ${v} installed RAM</b>` +
+          tip.innerHTML = `<b style="color:${color}">${isSplashView ? 'Splash payoff' : 'Tier ' + d.tier} · ${v} installed RAM</b>` +
             `<div class="row"><span>Share of its reaching games</span><span>${pct(shareOf(v))} <span class="dim">(${count.toLocaleString()}/${total.toLocaleString()})</span></span></div>`;
           tip.style.display = 'block';
           const hostRect = host.getBoundingClientRect();
@@ -530,9 +606,8 @@
       const previous = new Set([...host.querySelectorAll('input:checked')].map(input => input.value));
       host.innerHTML = packages.map(([faction, n]) => {
         const payoffs = [...(payoffsByFaction[faction] || [])].sort();
-        const glyph = FACTION_GLYPH[faction] || '•';
         return `<label class="splash-choice"><input type="checkbox" value="${esc(faction)}" ${previous.has(faction) ? 'checked' : ''}>`+
-          `<span><b>${glyph} ${faction.toLowerCase()} splash · ${n} cards</b>`+
+          `<span><b>${esc(faction.toLowerCase())} splash · ${n} cards</b>`+
           `<span class="sub">${payoffs.length ? 'payoff potential: ' + esc(payoffs.join(', ')) : 'no requirement-bearing payoffs'}</span></span></label>`;
       }).join('');
     }

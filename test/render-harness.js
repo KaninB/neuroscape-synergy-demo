@@ -59,6 +59,8 @@ global.URL = URL; global.Blob = class {}; global.AbortController = AbortControll
 global.__stubSVGText = true;
 
 let code = fs.readFileSync(path.join(repo, 'app.js'), 'utf8');
+const appHasEmoji = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{2603}\u{265F}\u{2699}\u{2692}\u{2B50}\u{2728}\u{270A}]/u.test(code);
+if (code.includes('FACTION_GLYPH') || appHasEmoji) { console.error('FAIL: app.js still carries faction emoji glyphs'); process.exit(1); }
 // Load real catalog + engine (they attach to globalThis when required)
 require(path.join(repo, 'catalog.js'));
 require(path.join(repo, 'engine.js'));
@@ -86,6 +88,8 @@ const run = new Function('globalThis', 'hosts', code + `
     const splashResult = await engine.analyze(splashParsed, nexus, { trials: 600, turns: 10, splash_factions: ['MYSTIC'] }, p => {});
     if (!splashResult.splash || !splashResult.splash.tax) throw new Error('splash telemetry missing');
     render(splashResult);
+    render(splashResult); // second pass to catch state pollution
+    // requirement table + splash variants render on the splash pass
     return {
       verdictCards: (hosts.verdict.$html.match(/class="card"/g) || []).length,
       compositionLen: hosts.composition.$html.length,
@@ -102,7 +106,13 @@ const run = new Function('globalThis', 'hosts', code + `
       splashChipCount: (hosts.splashChips.$html.match(/class="chip"/g) || []).length,
       splashTaxCount: (hosts.splashTaxChips.$html.match(/class="chip"/g) || []).length,
       splashTitleLen: (hosts.splashTitle.textContent || hosts.splashTitle.$html || '').length,
-      splashLinesLen: (hosts.splashLines.$html || '').length
+      splashLinesLen: (hosts.splashLines.$html || '').length,
+      splashTaxHtml: hosts.splashTaxChips.$html || '',
+      reqTableRows: ((hosts.reqTable.$html || '').match(/<tr>/g) || []).length,
+      reqTableHint: (hosts.reqTable.$html || '').includes('Scripts are PLAYED'),
+      compositionSplash: (hosts.composition.$html || '').includes('Splash ('),
+      handSplash: (hosts.handLines.$html || '').includes('Splash ('),
+      splashLineNames: (hosts.splashLines.$html || '').includes('THE SPIRIT REALM')
     };
   } };`);
 
@@ -127,6 +137,13 @@ const run = new Function('globalThis', 'hosts', code + `
   if (out.splashTaxCount < 1) fail.push('splash tax chips missing');
   if (!out.splashTitleLen) fail.push('splash title missing');
   if (!out.splashLinesLen) fail.push('splash lines missing');
+  if (out.splashLineNames) fail.push('splash lines still list every payoff by name');
+  if (/NaN/.test(out.splashTaxHtml)) fail.push('splash tax shows NaN');
+  if (!out.splashTaxHtml.includes('pts')) fail.push('splash tax chip missing pts value');
+  if (out.reqTableRows < 3) fail.push('requirement table rows missing');
+  if (!out.reqTableHint) fail.push('requirement table hint missing');
+  if (!out.compositionSplash) fail.push('composition splash paragraph missing');
+  if (!out.handSplash) fail.push('opening-hand splash line missing');
   if (fail.length) { console.error('FAIL: ' + fail.join('; ')); process.exit(1); }
   console.log('render harness PASS');
 })().catch(e => { console.error('FAIL', e && e.stack || e); process.exit(1); });
