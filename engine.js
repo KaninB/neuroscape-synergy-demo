@@ -597,7 +597,10 @@
     const factions = splash ? splash.factions : [];
     const reqHits = new Map(), iconTotals = {}, iconAtLeast = {};
     const firstHitTurns = new Map();  // card|position -> {turn -> count, never: count}
-    const firstHits = new Map();  // card|position -> turn (or 'never') -> game count
+    // Installed RAM at the moment the first persistent splash payoff came
+    // online — the splash variant of the tier RAM histograms.
+    const ramAtSplash = { first: [], second: [] };
+    const splashPersistent = payoffs.filter(card => card.persistent);
     const thresholds = splash ? splash.thresholds : [];
     // First-play telemetry for EVERY requirement-bearing card in the deck
     // (not just tracked splash payoffs): the requirement table shows when any
@@ -631,6 +634,10 @@
           }
         }
         if (splash) {
+          if (splashPersistent.length) {
+            const firstHit = Math.min(...splashPersistent.map(card => state.reqTurns[card.id]).filter(t => t !== undefined));
+            if (Number.isFinite(firstHit)) ramAtSplash[position].push(state.ramInstalled);
+          }
           for (let turn = 1; turn <= turns; turn++) {
             const counts = state.boardIcons[turn] || {};
             let total = 0;
@@ -756,10 +763,10 @@
     }
     // Splash variant of the RAM histogram: installed RAM when the first
     // persistent splash payoff came online (only meaningful when tracked).
-    // Splash variant of the RAM histogram: REMOVED (owner: "isn't awesome" —
-    // the deck is built around the package, so the number duplicates what the
-    // per-card turn histograms say better).
-    const splashRam = null;
+    const splashRam = splash ? {
+      note_n: { first: ramAtSplash.first.length, second: ramAtSplash.second.length },
+      installed_bins: { first: bin(ramAtSplash.first), second: bin(ramAtSplash.second) }
+    } : null;
     // Card requirement telemetry: cumulative play/online curves AND first-hit
     // turn histograms for EVERY requirement-bearing card in the deck.
     const cardFirstPlay = [];
@@ -791,6 +798,7 @@
       draw_only: drawOnly, curves,
       card_first_play: cardFirstPlay,
       ram_to_tier: ramToTier,
+      splash_ram: splashRam,
       splash: splash ? { factions: splash.factions, payoffs: payoffs.map(card => ({ card_id: card.id, name: card.name,
         persistent: !!card.persistent, requirement: card.requirements })),
       curves: splashCurves, icons: splashIcons, tax: splashTax } : null,

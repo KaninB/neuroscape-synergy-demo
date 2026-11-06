@@ -98,7 +98,9 @@ const run = new Function('globalThis', 'hosts', code + `
       curveChildren: hosts.curveChart.children.length,
       chipCount: (hosts.milestoneChips.$html.match(/class="chip"/g) || []).length,
       chipHasCI: hosts.milestoneChips.$html.includes('class="ci"'),
-      handLineCount: (hosts.handLines.$html.match(/hand-line/g) || []).length,
+      handLineCount: (hosts.handLines.children || []).filter(k => k.className === 'hand-line').length,
+      handText: (function walk(k){ let out=[]; if(k&&k.$text!==undefined)out.push(String(k.$text)); for(const c of (k&&k.children||[])) out=out.concat(walk(c)); return out; })(hosts.handLines).join(' '),
+      ramTierButtons: (hosts.ramTierToggle.children || []).map(k => k.attrs['data-tier']).join(','),
       ramNoteLen: ((hosts.ramNote.$html || hosts.ramNote.textContent) || '').length,
       ramChildren: hosts.ramChart.children.length,
       quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
@@ -116,7 +118,7 @@ const run = new Function('globalThis', 'hosts', code + `
       reqTableRows: ((hosts.reqTable.$html || '').match(/<tr>/g) || []).length,
       reqTableHint: (hosts.reqTable.$html || '').includes('Scripts are PLAYED'),
       compositionSplash: (hosts.composition.$html || '').includes('Splash ('),
-      handSplash: (hosts.handLines.$html || '').includes('Splash ('),
+      handSplash: (function walk(k){ let o=[]; if(k&&k.$text!==undefined)o.push(String(k.$text)); for(const c of (k&&k.children||[])) o=o.concat(walk(c)); return o; })(hosts.handLines).join(' ').includes('Splash ('),
       splashLineNames: (hosts.splashLines.$html || '').includes('THE SPIRIT REALM')
     };
   } };`);
@@ -133,6 +135,10 @@ const run = new Function('globalThis', 'hosts', code + `
   if (out.chipCount < 2) fail.push('milestone chips missing');
   if (!out.chipHasCI) fail.push('chip CI missing');
   if (out.handLineCount < 1) fail.push('hand lines missing');
+  if (/±/.test(out.handText)) fail.push('hand lines still show mean ± SD clause');
+  if (!out.ramTierButtons) fail.push('ram tier buttons missing');
+  if (!out.ramTierButtons.split(',').includes('1') || !out.ramTierButtons.split(',').includes('2')) fail.push('ram tier 1/2 buttons missing');
+  if (!out.ramTierButtons.split(',').includes('splash')) fail.push('ram splash button missing');
   if (!out.ramNoteLen) fail.push('ram note missing');
   if (!out.ramChildren) fail.push('ram chart empty');
   if (!out.quitLen) fail.push('quit line missing');

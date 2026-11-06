@@ -380,19 +380,17 @@
       renderReqTable();
       $('milestoneTurn').addEventListener('input', renderReqTable);
       applyPositionView = (orig => () => { orig(); renderReqTable(); })(applyPositionView);
-      // --- opening hand lines (exact hypergeometric mean/SD + exact qualify share) ---
+      // --- opening hand lines (exact hypergeometric qualify share) ---
       const N = result.deck_size, n = 5;
-      $('handLines').innerHTML = tiers.map(tier => {
-        const s = result.source_summary_by_tier[String(tier.tier)];
-        const K = s.source_cards;
-        const mean = n * K / N;
-        const sd = Math.sqrt(n * (K/N) * (1 - K/N) * (N - n) / (N - 1));
+      $('handLines').replaceChildren(...tiers.map(tier => {
         const joint = draw.find(r => r.tier === tier.tier && r.cards_seen === n);
-        if (!joint) return '';
+        if (!joint) return null;
         const need = Object.entries(tier.faction_requirements).map(([f,c]) => `${c} ${f.toLowerCase()}`).join(' + ');
-        return `<p class="hand-line"><b>Tier ${tier.tier}</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> of the ${K} qualifying sources `+
-          `<span class="hint">(needs ${esc(need)} + ${tier.board_requirement} board)</span> — <span class="big">${pct(joint.joint_threshold_probability)}</span> of hands already qualify.</p>`;
-      }).join('');
+        return dom('p', { class: 'hand-line' },
+          dom('b', {}, `Tier ${tier.tier}`),
+          ` — ${pct(joint.joint_threshold_probability)} of opening-5 hands already qualify `,
+          dom('span', { class: 'hint' }, `(needs ${need} + ${tier.board_requirement} board)`), '.');
+      }).filter(Boolean));
       if (result.splash) {
         // Splash variant of the opening-hand section: package pieces in a
         // random opening 5, exact hypergeometric math like the tier lines.
@@ -403,12 +401,14 @@
             ? Array(entry.copies).fill(card) : [];
         });
         if (pkgDeck.length) {
-          const K = pkgDeck.length, mean = n * K / N, sd = Math.sqrt(n * (K/N) * (1 - K/N) * (N - n) / (N - 1));
+          const K = pkgDeck.length;
           const pk = k => engine.choose(K, k) * engine.choose(N - K, n - k) / engine.choose(N, n);
           const pAny = 1 - pk(0);
-          const splashWord = esc(result.splash.factions.map(f => f.toLowerCase()).join(' + '));
-          $('handLines').innerHTML += `<p class="hand-line"><b>Splash (${splashWord})</b> — opening 5 holds <span class="big">${mean.toFixed(1)} ± ${sd.toFixed(1)}</span> package cards `+
-            `<span class="hint">(${K} in the deck)</span> — <span class="big">${pct(pAny)}</span> of hands hold at least one.</p>`;
+          const splashWord = result.splash.factions.map(f => f.toLowerCase()).join(' + ');
+          $('handLines').append(dom('p', { class: 'hand-line' },
+            dom('b', {}, `Splash (${splashWord})`),
+            ` — ${pct(pAny)} of opening-5 hands hold at least one package card `,
+            dom('span', { class: 'hint' }, `(${K} in the deck)`), '.'));
         }
       }
       // --- installed RAM when the synergy came online (one tier at a time) ---
@@ -424,10 +424,6 @@
       };
       let ramTierView = null;
       const splashRamData = result.splash_ram || null;
-      $('ramTierToggle').innerHTML = tierNums.map(tier =>
-        `<button type="button" data-tier="${tier}" aria-pressed="false">Tier ${tier}</button>`).join('') +
-        ((splashRamData && (splashRamData.note_n.first + splashRamData.note_n.second) > 0) ?
-          '<button type="button" data-tier="splash" aria-pressed="false">Splash</button>' : '');
       const markRamToggle = () => {
         for (const b of document.querySelectorAll('#ramTierToggle button')) {
           const on = String(b.dataset.tier) === String(ramTierView);
@@ -435,12 +431,6 @@
           b.setAttribute('aria-pressed', String(on));
         }
       };
-      for (const b of document.querySelectorAll('#ramTierToggle button'))
-        b.addEventListener('click', () => {
-          ramTierView = b.dataset.tier === 'splash' ? 'splash' : Number(b.dataset.tier);
-          markRamToggle();
-          renderRam();
-        });
       const renderRam = () => {
         const host = $('ramChart');
         host.replaceChildren();
@@ -456,11 +446,23 @@
         }
         const toggle = $('ramTierToggle');
         if (!data.length) {
+          toggle.innerHTML = '';
           toggle.hidden = true;
           $('ramNote').textContent = `No games reached any tier going ${positionView === 'first' ? 'first' : 'second'} in this configuration.`;
           return;
         }
         toggle.hidden = false;
+        // One button per tier that actually has data for this position —
+        // buttons for dataless tiers used to snap selection back to Tier 1,
+        // which read as a broken button.
+        toggle.replaceChildren(...data.map(d =>
+          dom('button', { type: 'button', 'data-tier': String(d.tier) }, d.tier === 'splash' ? 'Splash' : `Tier ${d.tier}`)));
+        for (const b of document.querySelectorAll('#ramTierToggle button'))
+          b.addEventListener('click', () => {
+            ramTierView = b.dataset.tier === 'splash' ? 'splash' : Number(b.dataset.tier);
+            markRamToggle();
+            renderRam();
+          });
         if (!data.some(d => d.tier === ramTierView)) ramTierView = data[0].tier;
         markRamToggle();
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
@@ -489,7 +491,7 @@
         const step = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => yMaxRaw / s <= 5) || 1;
         const yMax = Math.min(1, Math.ceil(yMaxRaw / step - 1e-9) * step);
         const sy = y => t + (1 - y / yMax) * (h - t - b);
-        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':`Installed RAM when tier ${d.tier}'s synergy came online`});
+        const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':isSplashView ? 'Installed RAM when the first splash payoff came online' : `Installed RAM when tier ${d.tier}'s synergy came online`});
         for (let v = 0; v <= yMax + 1e-9; v += step) {
           if (v) svg.append(svgNode('line',{x1:l,y1:sy(v),x2:w-r,y2:sy(v),stroke:fillGrid}));
           svg.append(svgNode('text',{x:l-9,y:sy(v)+5,'text-anchor':'end',fill:fillAxis,'font-size':fs},`${Math.round(v*100)}%`));
