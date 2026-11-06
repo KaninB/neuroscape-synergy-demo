@@ -212,7 +212,6 @@
         b.addEventListener('click', () => { positionView = b.dataset.pos; applyPositionView(); });
       // --- dedicated splash section (only when a package was tracked) ---
       $('splashSection').hidden = !result.splash;
-      const splashPayoffs = result.splash ? result.splash.payoffs : [];
       // The splash section has its own Going first / Going second toggle,
       // independent of the main chart's toggle above.
       let splashPositionView = 'first';
@@ -308,7 +307,7 @@
           for (const r of rows) if ((r.at_least.find(a => a.min_icons === n)?.probability || 0) >= .5) return r.turn;
           return null;
         };
-        // Requirement lines + payoff menu, built as DOM text nodes (no innerHTML).
+        // Requirement lines, built as DOM text nodes (no innerHTML).
         const prose = dom('div', {},
           dom('p', { class: 'src-line' },
             dom('b', {}, 'When the requirements come online'),
@@ -319,32 +318,23 @@
               dom('span', { class: 'req' }, `≥ ${n} ${splashWord} persistent source${n === 1 ? '' : 's'}`),
               ` — ${pct(p)} of games by turn ${maxTurn}` +
               (p > 0 && mid !== null && mid <= maxTurn ? ` (usually met around turn ${mid})` : '') + '.');
-          })),
-          dom('p', { class: 'src-line' },
-            dom('b', {}, 'Payoffs'), ' (each also needs its own RAM cost:)'),
-          dom('ul', {}, splashPayoffs.map(p => {
-            const row = (result.card_first_play || []).find(r => r.card_id === p.card_id && r.position === splashPositionView && r.turn === maxTurn);
-            const need = Object.entries(p.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
-            const kind = p.persistent ? 'persistent' : 'script';
-            return dom('li', {},
-              dom('b', {}, p.name), ' ',
-              dom('span', { class: 'hint' }, `(${kind} · needs ${need})`),
-              ` — ${row ? pct(row.probability) : '—'} of games had it played/online by turn ${maxTurn}.`);
           })));
         $('splashCardProse').replaceChildren(prose);
         $('splashHistNote').textContent = `Likelihood, by end of each turn, that your board holds at least n persistent ${splashWord} sources. Each line is a requirement level printed on a package card (one ${splashWord}, two ${splashWord}, …); a payoff comes online once every line it needs is met and its RAM cost is paid.`;
         // Splash tax: real deck vs neutral-filler swap at the same budget, at the horizon.
+        // Splash tax chips, built as DOM text nodes (no innerHTML).
         const taxRows = result.splash.tax ? tiers.map(tier => {
           const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);
           const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);
           return { tier, base, neutral };
         }).filter(r => r.base && r.neutral) : [];
-        $('splashTaxChips').innerHTML = taxRows.length ? taxRows.map(tax => {
+        $('splashTaxChips').replaceChildren(...taxRows.map(tax => {
           const delta = (tax.neutral.probability - tax.base.probability) * 100;
-          return '<div class="chip"><span class="k">splash tax · tier ' + tax.tier.tier + ' · by turn ' + maxTurn + ' · ' + splashPositionView + '</span>' +
-            '<span class="v">' + (delta <= 0.05 ? '±0.0' : '+' + delta.toFixed(1)) + 'pts</span>' +
-            '<span class="sub">tiers reach ' + pct(tax.base.probability) + ' here vs ' + pct(tax.neutral.probability) + ' without the package</span></div>';
-        }).join('') : '';
+          return dom('div', { class: 'chip' },
+            dom('span', { class: 'k' }, `splash tax · tier ${tax.tier.tier} · by turn ${maxTurn} · ${splashPositionView}`),
+            dom('span', { class: 'v' }, (delta <= 0.05 ? '±0.0' : '+' + delta.toFixed(1)) + 'pts'),
+            dom('span', { class: 'sub' }, `tiers reach ${pct(tax.base.probability)} here vs ${pct(tax.neutral.probability)} without the package`));
+        }));
         $('splashNote').textContent = 'The simulated player is nudged to deploy splash pieces, protects them in the opening-hand keep, and raises the auto RAM budget when a payoff needs the headroom. ' +
           'Splash tax compares this deck against the same deck with the package swapped for neutral fillers at the same RAM budget — ' +
           'it is what the package costs your tiers, not what it pays you back.';

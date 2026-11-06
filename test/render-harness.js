@@ -109,10 +109,10 @@ const run = new Function('globalThis', 'hosts', code + `
       splashHistNote: hosts.splashHistNote.textContent || '',
       deckCostChildren: hosts.deckCostChart.children.length,
       deckCostNote: hosts.deckCostNote.textContent || '',
-      splashTaxCount: (hosts.splashTaxChips.$html.match(/class="chip"/g) || []).length,
+      splashTaxCount: (hosts.splashTaxChips.children || []).filter(k => k.className === 'chip').length,
       splashTitleLen: (hosts.splashTitle.textContent || hosts.splashTitle.$html || '').length,
       splashLinesLen: (hosts.splashLines.$html || '').length,
-      splashTaxHtml: hosts.splashTaxChips.$html || '',
+      splashTaxText: (hosts.splashTaxChips.children || []).map(k => JSON.stringify(k.children)).join(' '),
       reqTableRows: ((hosts.reqTable.$html || '').match(/<tr>/g) || []).length,
       reqTableHint: (hosts.reqTable.$html || '').includes('Scripts are PLAYED'),
       compositionSplash: (hosts.composition.$html || '').includes('Splash ('),
@@ -144,7 +144,7 @@ const run = new Function('globalThis', 'hosts', code + `
       .filter(k => String(k.tagName).toLowerCase() === 'path').length);
     if (paths < 1) fail.push('splash threshold lines missing');
   }
-  if (!/requirements come online/.test(out.splashProse) || !/Payoffs/.test(out.splashProse)) fail.push('splash threshold prose missing');
+  if (!/requirements come online/.test(out.splashProse) || /Payoffs/.test(out.splashProse)) fail.push('splash prose wrong (payoffs list should be gone)');
   if (!out.splashHistNote.includes('at least')) fail.push('splash threshold note missing');
   if (!out.deckCostChildren) fail.push('deck cost chart empty');
   if (!out.deckCostNote.includes('RAM cost')) fail.push('deck cost note missing');
@@ -152,8 +152,8 @@ const run = new Function('globalThis', 'hosts', code + `
   if (!out.splashTitleLen) fail.push('splash title missing');
   if (!out.splashLinesLen) fail.push('splash lines missing');
   if (out.splashLineNames) fail.push('splash lines still list every payoff by name');
-  if (/NaN/.test(out.splashTaxHtml)) fail.push('splash tax shows NaN');
-  if (!out.splashTaxHtml.includes('pts')) fail.push('splash tax chip missing pts value');
+  if (/NaN/.test(out.splashTaxText)) fail.push('splash tax shows NaN');
+  if (!out.splashTaxText.includes('pts')) fail.push('splash tax chip missing pts value');
   if (out.reqTableRows < 3) fail.push('requirement table rows missing');
   if (!out.reqTableHint) fail.push('requirement table hint missing');
   if (!out.compositionSplash) fail.push('composition splash paragraph missing');
