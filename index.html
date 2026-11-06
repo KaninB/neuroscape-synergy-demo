@@ -41,7 +41,8 @@
     h2 { margin:0 0 12px; font-size:22px; line-height:1.2; letter-spacing:-.015em; }
     h3 { margin:0 0 8px; font-size:17px; }
     p { margin:8px 0 14px; }
-    .hint,.muted { color:var(--muted); font-size:12px; }
+    .hint,.muted { color:var(--muted); font-size:13px; }
+    .hint b { color:var(--text); }
     .upload-block { border:1px solid var(--line); background:#202428; border-radius:4px; padding:14px; margin-bottom:13px; }
     .upload-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
     .upload-head strong { font:700 13px/1.3 Arial,Helvetica,sans-serif; }
@@ -73,7 +74,7 @@
       font-size:11px; font-weight:400; line-height:1.45; opacity:0; visibility:hidden; transform:translateY(4px); transition:.14s ease; }
     .info-wrap:hover .info-popover,.info-wrap.open .info-popover { opacity:1; visibility:visible; transform:none; }
     .setting-explanation { color:var(--muted); font-size:11px; margin:7px 0 0; }
-    .note { padding:13px 14px; border-left:4px solid var(--warning); border-radius:3px; background:#30353a; color:var(--muted); margin:14px 0 0; font-size:11px; }
+    .note { padding:13px 14px; border-left:4px solid var(--warning); border-radius:3px; background:#30353a; color:var(--muted); margin:14px 0 0; font-size:13px; }
     .note strong { color:var(--text); }
     .error { padding:11px 13px; background:#3a2928; color:#ffd4c9; border:1px solid var(--danger); border-radius:4px; margin-top:11px; white-space:pre-wrap; font-size:12px; }
     .file-error { margin:8px 0 0; }
@@ -119,10 +120,10 @@
     .verdict small { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.12em; font-family:Arial,Helvetica,sans-serif; }
     .verdict .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
     .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px; }
-    .chip { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:8px 12px; min-width:120px; }
-    .chip .k { display:block; font:11px Arial,Helvetica,sans-serif; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
-    .chip .v { font:700 18px/1.3 "Courier New",ui-monospace,monospace; }
-    .chip .ci { display:block; color:var(--muted); font-size:10.5px; font-family:"Courier New",ui-monospace,monospace; }
+    .chip { background:var(--raised); border:1px solid var(--line); border-radius:4px; padding:9px 12px; min-width:130px; }
+    .chip .k { display:block; font-size:12px; color:var(--muted); }
+    .chip .v { font:700 20px/1.3 "Courier New",ui-monospace,monospace; }
+    .chip .ci { display:none; }
     .src-line { margin:8px 0 2px; font-size:13.5px; }
     .src-line .req { color:var(--muted); }
     .hand-line { margin:8px 0; font-size:14px; }
@@ -134,13 +135,13 @@
     .stat small { display:block; color:var(--muted); margin-top:4px; }
     .chart-host { position:relative; }
     .chart-tip { position:absolute; z-index:6; pointer-events:none; background:#101315; border:1px solid var(--action);
-      border-radius:4px; padding:7px 10px; font:11px/1.5 Verdana,sans-serif; color:var(--text);
+      border-radius:4px; padding:9px 12px; font:13px/1.5 Verdana,sans-serif; color:var(--text);
       box-shadow:0 8px 22px #0009; }
     .chart-tip .row { display:flex; justify-content:space-between; gap:14px; margin-top:3px; }
     .chart-tip .dim { color:var(--muted); }
     .table-scroll td b { font-weight:700; }
     .table-scroll td { vertical-align:top; }
-    .table-scroll .ci { display:block; color:var(--muted); font-size:9px; margin-top:2px; }
+    .table-scroll .ci { display:block; color:var(--muted); font-size:11px; margin-top:2px; }
     .table-scroll .dim { color:var(--muted); }
     .table-scroll .tierkey, .table-scroll .swatch { white-space:nowrap; }
     .table-scroll td.picked, .table-scroll th .picked { background:#24c8a51c; box-shadow:inset 0 0 0 1px #24c8a566; }
@@ -150,20 +151,17 @@
     .table-scroll tr.pos-first td { border-bottom:1px dotted #39424a; }
     .table-scroll th, .table-scroll td:first-child, .table-scroll td:last-child { white-space:nowrap; }
     .chart-box { border:1px solid var(--line); border-radius:4px; background:#202428; padding:12px; overflow:hidden; }
-    .chart-box h3 { margin-left:7px; text-transform:uppercase; font-size:13px; letter-spacing:.035em; }
+    .chart-box h3 { display:none; }
     .chart-box svg { width:100%; height:auto; display:block; }
-    .legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:8px 14px; margin:11px 4px; font-size:11px; }
-    .legend span { display:flex; align-items:center; gap:8px; color:var(--muted); }
-    .legend svg { width:38px; height:8px; flex:0 0 38px; overflow:visible; }
     .section { margin-top:26px; padding-top:21px; border-top:1px solid var(--line); }
     .callout { border:1px solid var(--line); border-left:4px solid var(--action); border-radius:4px;
-      background:#202428; color:var(--muted); padding:12px 14px; font-size:12px; line-height:1.55; margin:14px 0 4px; }
+      background:#202428; color:var(--muted); padding:12px 14px; font-size:13px; line-height:1.55; margin:14px 0 4px; }
     .callout strong { color:var(--text); }
     .section-head { display:flex; justify-content:space-between; gap:14px; align-items:start; }
-    table { border-collapse:collapse; width:100%; font-size:11px; }
-    th,td { text-align:left; padding:8px 9px; border-bottom:1px solid #4c565d; }
-    th { color:var(--muted); font-weight:700; background:var(--raised); text-transform:uppercase; font-size:10px; }
-    td { font-family:"Courier New",ui-monospace,monospace; }
+    table { border-collapse:collapse; width:100%; font-size:13.5px; }
+    th,td { text-align:left; padding:9px 10px; border-bottom:1px solid #4c565d; }
+    th { color:var(--muted); font-weight:700; font-size:12px; }
+    td { font-family:"Courier New",ui-monospace,monospace; font-size:13.5px; }
     .table-scroll { overflow-x:auto; border:1px solid var(--line); border-radius:4px; }
     .pill { display:inline-block; background:var(--raised); border:1px solid var(--line); border-radius:99px; padding:4px 9px; font-size:11px; margin:3px 4px 3px 0; }
     .formula { font:12px/1.58 "Courier New",ui-monospace,monospace; background:#161a1d; border:1px solid var(--line); border-radius:4px; padding:13px; overflow:auto; color:var(--text); }
@@ -237,8 +235,8 @@
           <div class="chart-box"><div id="curveChart"></div></div>
           <div class="turn-picker"><label for="milestoneTurn"><strong>At turn</strong></label>
             <div class="stepper"><button class="step-btn minus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Decrease turn">−</button><input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="6" aria-describedby="milestoneHelp"><button class="step-btn plus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Increase turn">+</button></div>
-            <span id="milestoneHelp" class="hint">F = going <b>F</b>irst · S = going <b>S</b>econd · number = tier. Hover a chip for its standard error.</span></div>
-          <div id="milestoneChips" class="chips"></div></div>
+            <span id="milestoneHelp" class="hint">Each chip is one tier at the chosen turn: going first on top, going second under it. Hover a chip for its standard error.</span></div>
+              <div id="milestoneChips" class="chips"></div></div>
         <div class="section"><h2>Why — the deck and the draw</h2>
           <h3>Opening hand (5 cards)</h3>
           <div id="handLines"></div>
@@ -251,6 +249,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261105-5"></script><script src="engine.js?v=20261105-5"></script><script src="app.js?v=20261105-5"></script>
+  <script src="catalog.js?v=20261105-6"></script><script src="engine.js?v=20261105-6"></script><script src="app.js?v=20261105-6"></script>
 </body>
 </html>

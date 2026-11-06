@@ -87,47 +87,41 @@
       const drawCurve = () => {
         curveHost.replaceChildren();
         const tall = curveHost.clientWidth > 0 && curveHost.clientWidth < 430;
-        const w = tall ? 340 : 960, h = tall ? 430 : 380, l = tall ? 47 : 58, r = tall ? 16 : 96, t = 16, b = 46;
-        const fs = tall ? 13 : 12;
+        const w = tall ? 340 : 960, h = tall ? 430 : 400, l = tall ? 46 : 52, r = tall ? 16 : 84, t = 20, b = 46;
+        const fs = 14;
+        const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
         const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
         const sy = y => t + (1 - y) * (h - t - b);
         const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img',
           'aria-label':`Cumulative probability each tier is online, by own turn, going ${positionView === 'first' ? 'first' : 'second'}`});
         for (const value of [0,.25,.5,.75,1]) {
-          svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:'#4B565E'}));
-          svg.append(svgNode('text',{x:l-8,y:sy(value)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${value*100}%`));
+          if (value) svg.append(svgNode('line',{x1:l,y1:sy(value),x2:w-r,y2:sy(value),stroke:fillGrid}));
+          svg.append(svgNode('text',{x:l-9,y:sy(value)+5,'text-anchor':'end',fill:fillAxis,'font-size':fs},`${value*100}%`));
         }
         const stride = maxTurn > 16 ? 4 : maxTurn > 8 ? 2 : 1;
         for (let x = 1; x <= maxTurn; x += stride) {
-          svg.append(svgNode('line',{x1:sx(x),y1:h-b,x2:sx(x),y2:h-b+5,stroke:'#7B8992'}));
-          svg.append(svgNode('text',{x:sx(x),y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(x)));
+          svg.append(svgNode('line',{x1:sx(x),y1:h-b,x2:sx(x),y2:h-b+6,stroke:fillGrid}));
+          svg.append(svgNode('text',{x:sx(x),y:h-b+24,'text-anchor':'middle',fill:fillX,'font-size':fs},String(x)));
         }
-        svg.append(svgNode('text',{x:(l+w-r)/2,y:h-5,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},'Own turn'));
-        svg.append(svgNode('text',{x:14,y:(t+h-b)/2,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs,
-          transform:`rotate(-90 14 ${(t+h-b)/2})`},'Chance the tier is online'));
-        const tipRows = [];
+        svg.append(svgNode('text',{x:l+22,y:h-4,'text-anchor':'start',fill:fillX,'font-size':fs},'Turn'));
+        // Tier labels ride the lines (Tufte: label the data, skip the legend)
         for (const tier of tierNums) {
           const series = curves.filter(r2 => r2.tier === tier && r2.position === positionView).sort((a,b2) => a.turn - b2.turn);
           if (!series.length) continue;
           const parts = [`M ${sx(series[0].turn)} ${sy(series[0].probability)}`];
           for (let i = 1; i < series.length; i++)
             parts.push(`H ${sx(series[i].turn)} V ${sy(series[i].probability)}`);
-          const pathAttrs = {d:parts.join(' '),fill:'none',stroke:colors[(tier-1)%colors.length],
-            'stroke-width':3,'stroke-linejoin':'round'};
-          const dash = lineStyles[(tier-1)%lineStyles.length];
-          if (dash) pathAttrs['stroke-dasharray'] = dash;
-          svg.append(svgNode('path',pathAttrs));
-          if (!tall) {
-            const last = series[series.length - 1], med = medianFirstHit(tier, positionView);
-            svg.append(svgNode('text',{x:sx(last.turn)+8,y:sy(last.probability)+4,'text-anchor':'start',
-              fill:colors[(tier-1)%colors.length],'font-size':fs+0.5,'font-weight':700},
-              `T${tier}${med !== null ? ' · med ' + med : ''}`));
-          }
+          svg.append(svgNode('path',{d:parts.join(' '),fill:'none',stroke:colors[(tier-1)%colors.length],
+            'stroke-width':2.5,'stroke-linejoin':'round'}));
+          const last = series[series.length - 1], med = medianFirstHit(tier, positionView);
+          const lx = sx(last.turn) + 9;
+          svg.append(svgNode('text',{x:lx,y:sy(last.probability)+5,'text-anchor':'start',
+            fill:colors[(tier-1)%colors.length],'font-size':fs+1,'font-weight':700},
+            `Tier ${tier}${med !== null ? ' · ' + med : ''}`));
           for (const row of series)
             svg.append(svgNode('circle',{cx:sx(row.turn),cy:sy(row.probability),r:2.6,fill:colors[(tier-1)%colors.length]}));
-          tipRows.push({ tier, series });
         }
-        const cross = svgNode('line',{x1:0,y1:t,x2:0,y2:h-b,stroke:'#7B8992','stroke-dasharray':'3 3',visibility:'hidden'});
+        const cross = svgNode('line',{x1:0,y1:t,x2:0,y2:h-b,stroke:'#F9FAFB','stroke-dasharray':'3 4',visibility:'hidden'});
         svg.append(cross);
         curveHost.append(svg);
         curveHost.style.position = 'relative';
@@ -140,13 +134,15 @@
           const turn = Math.max(1, Math.min(maxTurn, Math.round(1 + (mx - l) / Math.max(1, w - l - r) * (maxTurn - 1))));
           cross.setAttribute('x1', sx(turn)); cross.setAttribute('x2', sx(turn));
           cross.setAttribute('visibility','visible');
-          tip.innerHTML = `<b>Turn ${turn} · going ${positionView === 'first' ? 'first' : 'second'}</b>` +
-            tipRows.map(({tier, series}) => {
-              const row = series.find(x => x.turn === turn);
-              const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
-              return `<div class="row"><span><span style="color:${colors[(tier-1)%colors.length]}">■</span> Tier ${tier}</span>`+
-                `<span>${pct(row.probability)} <span class="dim">± ${(100 * se).toFixed(1)}%</span></span></div>`;
-            }).join('');
+          const rows = tierNums.map(tier => {
+            const series = curves.filter(r2 => r2.tier === tier && r2.position === positionView);
+            const row = series.find(x => x.turn === turn);
+            if (!row) return '';
+            const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
+            return `<div class="row"><span><span style="color:${colors[(tier-1)%colors.length]}">■</span> Tier ${tier}</span>`+
+              `<span>${pct(row.probability)} <span class="dim">± ${(100 * se).toFixed(1)}%</span></span></div>`;
+          }).join('');
+          tip.innerHTML = `<b>Turn ${turn} · going ${positionView === 'first' ? 'first' : 'second'}</b>` + rows;
           tip.style.display = 'block';
           const hostRect = curveHost.getBoundingClientRect();
           let tx = event.clientX - hostRect.left + 14;
@@ -177,11 +173,10 @@
         $('milestoneChips').innerHTML = tierNums.flatMap(tier => ['first','second'].map(pos => {
           const row = curves.find(x => x.tier === tier && x.position === pos && x.turn === turn);
           if (!row) return '';
-          const key = (pos === 'first' ? 'F' : 'S') + '-' + tier;
-          const name = pos === 'first' ? 'first' : 'second';
+          const posWord = pos === 'first' ? 'first' : 'second';
           const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
-          return `<div class="chip" title="Tier ${tier} by turn ${turn}, going ${name}: ${pct(row.probability)} ± ${(100 * se).toFixed(1)}% (standard error), from ${row.trials.toLocaleString()} simulated games">`+
-            `<span class="k">${key} · by turn ${turn}</span>`+
+          return `<div class="chip" title="Tier ${tier} by turn ${turn}, going ${pos}: ${pct(row.probability)} ± ${(100 * se).toFixed(1)}% (standard error), from ${row.trials.toLocaleString()} simulated games">`+
+            `<span class="k">Tier ${tier} · turn ${turn} · ${posWord}</span>`+
             `<span class="v" style="color:${colors[(tier-1)%colors.length]}">${pct(row.probability)}</span>`+
             `<span class="ci">± ${(100 * se).toFixed(1)}%</span></div>`;
         })).join('');
@@ -245,6 +240,7 @@
         toggle.hidden = false;
         if (!data.some(d => d.tier === ramTierView)) ramTierView = data[0].tier;
         markRamToggle();
+        const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
         const d = data.find(x => x.tier === ramTierView);
         const color = colors[(d.tier-1)%colors.length];
         const total = Object.values(d.bins).reduce((a, c) => a + c, 0);
@@ -257,7 +253,7 @@
         const maxRam = Math.max(...Object.keys(d.bins).map(Number));
         const minRam = 0;
         const tall = host.clientWidth > 0 && host.clientWidth < 430;
-        const w = tall ? 340 : 960, h = tall ? 380 : 300, l = tall ? 64 : 70, r = tall ? 16 : 20, t = 18, b = 46, fs = tall ? 13 : 12;
+        const w = tall ? 340 : 960, h = tall ? 380 : 300, l = tall ? 60 : 66, r = tall ? 16 : 20, t = 20, b = 46, fs = 14;
         const slots = Math.max(1, maxRam - minRam + 1);
         const groupW = (w - l - r) / slots;
         const sx = v => l + (v - minRam) / slots * (w - l - r);
@@ -269,14 +265,15 @@
         const sy = y => t + (1 - y / yMax) * (h - t - b);
         const svg = svgNode('svg',{viewBox:`0 0 ${w} ${h}`,role:'img','aria-label':`Installed RAM when tier ${d.tier}'s synergy came online`});
         for (let v = 0; v <= yMax + 1e-9; v += step) {
-          svg.append(svgNode('line',{x1:l,y1:sy(v),x2:w-r,y2:sy(v),stroke:'#4B565E'}));
-          svg.append(svgNode('text',{x:l-8,y:sy(v)+4,'text-anchor':'end',fill:'#BCC4D0','font-size':fs},`${Math.round(v*100)}%`));
+          if (v) svg.append(svgNode('line',{x1:l,y1:sy(v),x2:w-r,y2:sy(v),stroke:fillGrid}));
+          svg.append(svgNode('text',{x:l-9,y:sy(v)+5,'text-anchor':'end',fill:fillAxis,'font-size':fs},`${Math.round(v*100)}%`));
         }
         svg.append(svgNode('text',{x:14,y:(t+h-b)/2,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs,
           transform:`rotate(-90 14 ${(t+h-b)/2})`},'% of the tier\u2019s reaching games'));
         const stride = tall ? Math.ceil(slots / 9) : slots > 16 ? 2 : 1;
         for (let v = minRam; v <= maxRam; v += stride)
-          svg.append(svgNode('text',{x:sx(v) + groupW/2,y:h-b+21,'text-anchor':'middle',fill:'#BCC4D0','font-size':fs},String(v)));
+          svg.append(svgNode('text',{x:sx(v) + groupW/2,y:h-b+24,'text-anchor':'middle',fill:fillX,'font-size':fs},String(v)));
+        svg.append(svgNode('text',{x:l-2,y:h-4,'text-anchor':'start',fill:fillX,'font-size':fs},'RAM'));
         for (let v = minRam; v <= maxRam; v++) {
           const count = d.bins[v] || 0;
           if (!count) continue;
@@ -288,7 +285,7 @@
         if (med !== null && med !== undefined) {
           const x = sx(med) + groupW/2;
           svg.append(svgNode('line',{x1:x,y1:t,x2:x,y2:h-b,stroke:color,'stroke-width':1.5,'stroke-dasharray':'4 3'}));
-          svg.append(svgNode('text',{x:Math.min(w - r - 24, Math.max(l + 24, x)),y:t + 10,'text-anchor':'middle',fill:color,'font-size':fs,'font-weight':700},`med ${med}`));
+          svg.append(svgNode('text',{x:Math.min(w - r - 24, Math.max(l + 24, x)),y:t + 12,'text-anchor':'middle',fill:color,'font-size':fs,'font-weight':700},`typical ${med}`));
         }
         // Hover: highlight the bar under the pointer and show its values.
         const hover = svgNode('rect',{x:0,y:t,width:0,height:0,fill:'none',stroke:'#F9FAFB','stroke-width':1.5,visibility:'hidden'});
