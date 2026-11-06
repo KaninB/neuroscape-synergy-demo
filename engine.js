@@ -474,14 +474,9 @@
     let count = 0;
     for (const item of data.items) {
       if (!item || !item.card || !item.card.name || !Number.isInteger(item.quantity)) continue;
-      if (item.section === 'ram') continue;
+      if (item.section !== 'cyberdeck') continue; // sideboard/ram items are emitted below
       lines.push(`${item.quantity} ${item.card.name}`);
       count += item.quantity;
-    }
-    const sideboard = data.items.filter(item => item.section === 'sideboard' && item.card && item.card.name);
-    if (sideboard.length) {
-      lines.push('#SIDEBOARD');
-      for (const item of sideboard) lines.push(`${item.quantity} ${item.card.name}`);
     }
     if (!count) throw new Error('the deck contains no Cyberdeck cards');
     return lines.join('\n');
