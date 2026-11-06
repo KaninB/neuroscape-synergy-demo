@@ -103,7 +103,6 @@ const run = new Function('globalThis', 'hosts', code + `
       quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
       warningsLen: hosts.warnings.$html.length,
       splashChildren: hosts.splashChart.children.length,
-      splashPickButtons: ((hosts.splashCardPick.$html || '').match(/data-card=/g) || []).length,
       splashProse: hosts.splashCardProse.$html || '',
       splashHistNote: hosts.splashHistNote.textContent || '',
       deckCostChildren: hosts.deckCostChart.children.length,
@@ -137,9 +136,14 @@ const run = new Function('globalThis', 'hosts', code + `
   if (!out.quitLen) fail.push('quit line missing');
   if (!out.warningsLen) fail.push('warnings missing');
   if (!out.splashChildren) fail.push('splash chart empty');
-  if (out.splashPickButtons < 2) fail.push('splash card picker missing');
-  if (!/needs/.test(out.splashProse) || !/turn \$?{?|Typically first online|only |did not come online/.test(out.splashProse)) fail.push('splash card prose missing');
-  if (!out.splashHistNote.includes('FIRST')) fail.push('splash histogram note missing');
+  if (out.splashChildren) {
+    // threshold-lines chart: one svg, a path per requirement level
+    const paths = (out.splashChartPaths = (hosts.splashChart.children[0] && hosts.splashChart.children[0].children || [])
+      .filter(k => String(k.tagName).toLowerCase() === 'path').length);
+    if (paths < 1) fail.push('splash threshold lines missing');
+  }
+  if (!/requirements come online/.test(out.splashProse) || !/Payoffs/.test(out.splashProse)) fail.push('splash threshold prose missing');
+  if (!out.splashHistNote.includes('at least')) fail.push('splash threshold note missing');
   if (!out.deckCostChildren) fail.push('deck cost chart empty');
   if (!out.deckCostNote.includes('RAM cost')) fail.push('deck cost note missing');
   if (out.splashTaxCount < 1) fail.push('splash tax chips missing');

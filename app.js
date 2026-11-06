@@ -218,6 +218,12 @@
       let renderSplash = () => {};
       if (result.splash) {
       markSplashToggle();
+      // Requirement levels printed on package cards (e.g. [1, 2]) and the
+      // faction word used in labels — one line per level, no card picker.
+      const thresholdList = result.splash
+        ? [...new Set(result.splash.payoffs.flatMap(p => Object.values(p.requirement || {})))].sort((a, b) => a - b)
+        : [];
+      const splashWord = result.splash.factions.map(f => f.toLowerCase()).join('/');
       $('splashTitle').textContent = `Splash — ${result.splash.factions.join(' + ').toLowerCase()} package`;
       const pkgEntries = result.deck_entries.filter(entry => {
         const card = catalog.cards.find(item => item.id === entry.card_id);
@@ -238,64 +244,44 @@
         `${esc(result.splash.factions.map(f => f.toLowerCase()).join('/'))} icon${pkgStats.icons === 1 ? '' : 's'}. Not counted in any tier's source list above.</p>`;
       $('splashLines').innerHTML = `<p class="src-line"><b>${result.splash.factions.map(f => f.toLowerCase()).join(' / ')}</b> off-plan for this Mainframe — `+
         `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}).</p>`;
-      // Card picker: inspect one splash payoff at a time.
-      let splashCardView = splashPayoffs[0]?.card_id || null;
-      const markSplashCardPick = () => {
-        for (const b of document.querySelectorAll('#splashCardPick button')) {
-          const on = b.dataset.card === splashCardView;
-          b.classList.toggle('on', on);
-          b.setAttribute('aria-pressed', String(on));
-        }
-      };
-      $('splashCardPick').innerHTML = splashPayoffs.map(p =>
-        `<button type="button" data-card="${esc(p.card_id)}" aria-pressed="false">${esc(p.name)}</button>`).join('');
-      for (const b of document.querySelectorAll('#splashCardPick button'))
-        b.addEventListener('click', () => { splashCardView = b.dataset.card; markSplashCardPick(); renderSplash(); });
-      markSplashCardPick();
-      // Splash inspection: one card at a time — requirement prose + first-online histogram.
+      // Threshold-lines chart: when the package's requirement levels come
+      // online — P(board icons ≥ n) per threshold, one line each, no picker.
       drawSplash = () => {
         const host = $('splashChart');
         host.replaceChildren();
-        const payoff = splashPayoffs.find(p => p.card_id === splashCardView) || splashPayoffs[0];
-        if (!payoff) return;
-        const row = (result.card_first_play || []).find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === maxTurn);
-        if (!row) return;
-        const counts = row.first_turn_counts || {}, never = row.never_count || 0;
-        const total = row.trials;
+        const rows = (result.splash.icons[splashPositionView] || []).slice().sort((a, b2) => a.turn - b2.turn);
+        if (!rows.length || !thresholdList.length) return;
         const tall = host.clientWidth > 0 && host.clientWidth < 430;
-        const w = tall ? 340 : 960, h = tall ? 360 : 300, l = tall ? 46 : 52, r = 16, t = 18, b = 46, fs = 14;
+        const w = tall ? 340 : 960, h = tall ? 430 : 400, l = tall ? 46 : 52, r = tall ? 16 : 84, t = 20, b = 46, fs = 14;
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
-        const turnNums = Array.from({ length: maxTurn }, (_, i) => i + 1);
-        const slotW = (w - l - r) / (maxTurn + 1);  // +1 slot for “not by horizon”
-        const maxShare = Math.max(...turnNums.map(t => (counts[t] || 0) / total), never / total, 0.05);
-        const step = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => maxShare / s <= 5) || 1;
-        const yMax = Math.min(1, Math.ceil(maxShare / step - 1e-9) * step);
-        const sy = y => t + (1 - y / yMax) * (h - t - b);
-        const sx = t2 => l + (t2 - 1) * slotW;
+        const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
+        const sy = y => t + (1 - y) * (h - t - b);
+        const iconWord = n => `${n} ${splashWord} icon${n === 1 ? '' : 's'}`;
         const svg = svgNode('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img',
-          'aria-label': `Which turn ${payoff.name} first came online, going ${splashPositionView === 'first' ? 'first' : 'second'}` });
-        for (let v = 0; v <= yMax + 1e-9; v += step) {
-          if (v) svg.append(svgNode('line', { x1: l, y1: sy(v), x2: w - r, y2: sy(v), stroke: fillGrid }));
-          svg.append(svgNode('text', { x: l - 9, y: sy(v) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, `${Math.round(v * 100)}%`));
+          'aria-label': `Probability the board holds at least ${thresholdList.map(iconWord).join(' or ')}, by turn, going ${splashPositionView === 'first' ? 'first' : 'second'}` });
+        for (const value of [0, .25, .5, .75, 1]) {
+          if (value) svg.append(svgNode('line', { x1: l, y1: sy(value), x2: w - r, y2: sy(value), stroke: fillGrid }));
+          svg.append(svgNode('text', { x: l - 9, y: sy(value) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, `${value * 100}%`));
         }
-        turnNums.forEach(turn => {
-          const count = counts[turn] || 0, share = count / total;
-          const x = sx(turn) + 2, bw = Math.max(4, slotW - 4);
-          if (count) {
-            svg.append(svgNode('rect', { x, y: sy(share), width: bw, height: Math.max(0, h - b - sy(share)), fill: '#24C8A5', opacity: .9 }));
-            svg.append(svgNode('text', { x: x + bw / 2, y: sy(share) - 5, 'text-anchor': 'middle', fill: '#E8ECF1', 'font-size': fs - 1 }, pct(share)));
-          }
-          svg.append(svgNode('text', { x: x + bw / 2, y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, String(turn)));
+        const stride = maxTurn > 16 ? 4 : maxTurn > 8 ? 2 : 1;
+        for (let x = 1; x <= maxTurn; x += stride) {
+          svg.append(svgNode('line', { x1: sx(x), y1: h - b, x2: sx(x), y2: h - b + 6, stroke: fillGrid }));
+          svg.append(svgNode('text', { x: sx(x), y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, String(x)));
+        }
+        svg.append(svgNode('text', { x: l + 22, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'Turn'));
+        // One step-path per requirement level; labels ride the line ends.
+        thresholdList.forEach((needed, i) => {
+          const at = row => row.at_least.find(a => a.min_icons === needed)?.probability || 0;
+          const parts = [`M ${sx(rows[0].turn)} ${sy(at(rows[0]))}`];
+          for (let j = 1; j < rows.length; j++)
+            parts.push(`H ${sx(rows[j].turn)} V ${sy(at(rows[j]))}`);
+          svg.append(svgNode('path', { d: parts.join(' '), fill: 'none', stroke: colors[i % colors.length],
+            'stroke-width': 2.5, 'stroke-linejoin': 'round' }));
+          const last = rows[rows.length - 1], lastProb = at(last);
+          svg.append(svgNode('text', { x: sx(last.turn) + 9, y: Math.max(t + 10, Math.min(h - b - 6, sy(lastProb) + 5)),
+            'text-anchor': 'start', fill: colors[i % colors.length], 'font-size': fs, 'font-weight': 600 },
+            needed === 1 ? '≥ 1 icon' : `≥ ${needed} icons`));
         });
-        // Honest bar for games where it never happened inside the horizon.
-        const xNever = l + maxTurn * slotW + 2, bwNever = Math.max(4, slotW - 4);
-        const shareNever = never / total;
-        if (never) {
-          svg.append(svgNode('rect', { x: xNever, y: sy(shareNever), width: bwNever, height: Math.max(0, h - b - sy(shareNever)), fill: '#7B8992', opacity: .8 }));
-          svg.append(svgNode('text', { x: xNever + bwNever / 2, y: sy(shareNever) - 5, 'text-anchor': 'middle', fill: '#E8ECF1', 'font-size': fs - 1 }, pct(shareNever)));
-        }
-        svg.append(svgNode('text', { x: xNever + bwNever / 2, y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs - 2 }, 'not by ' + maxTurn));
-        svg.append(svgNode('text', { x: l - 2, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'First online'));
         host.append(svg);
       };
       drawSplash();
@@ -303,35 +289,31 @@
       renderSplash = () => {
         drawSplash();
         if (!result.splash) { $('splashCardProse').innerHTML = ''; $('splashTaxChips').innerHTML = ''; $('splashHistNote').textContent = ''; $('splashNote').textContent = ''; return; }
-        const payoff = splashPayoffs.find(p => p.card_id === splashCardView) || splashPayoffs[0];
-        if (!payoff) return;
-        const row = (result.card_first_play || []).find(r => r.card_id === payoff.card_id && r.position === splashPositionView && r.turn === maxTurn);
-        const need = Object.entries(payoff.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
-        const sourceLine = result.deck_entries.filter(e => {
-          const card = catalog.cards.find(item => item.id === e.card_id);
-          return card && card.persistent && card.factions.some(f => Object.keys(payoff.requirement || {}).includes(f));
-        }).reduce((sum, e) => sum + e.copies, 0);
-        // Typical first-online turn (median of the histogram).
-        let typical = null;
-        if (row) {
-          let cum = 0;
-          for (let t = 1; t <= maxTurn; t++) {
-            cum += (row.first_turn_counts || {})[t] || 0;
-            if (cum >= row.trials / 2) { typical = t; break; }
-          }
-        }
-        const cost = catalog.cards.find(item => item.id === payoff.card_id)?.cost ?? payoff.cost ?? '?';
-        const kind = payoff.persistent ? 'installed and stays online' : 'a script — played once, then gone';
-        const reachedShare = row ? row.reached_count / row.trials : 0;
-        const timing = !row ? 'No simulation data for this card.' :
-          reachedShare >= 0.5 ? `Typically first online: <b>turn ${typical ?? '—'}</b> going ${splashPositionView === 'first' ? 'first' : 'second'}; ${pct(reachedShare)} of games had it online by turn ${maxTurn}.` :
-          reachedShare > 0 ? `It comes online in only ${pct(reachedShare)} of games by turn ${maxTurn} going ${splashPositionView === 'first' ? 'first' : 'second'}${typical !== null ? ` — typically turn ${typical} when it does` : ''}.` :
-          `It did not come online in any simulated game within ${maxTurn} turns going ${splashPositionView === 'first' ? 'first' : 'second'} — check whether another card of the same type takes the board slot first (the simulator deploys one environment at a time, cheapest first).`;
-        $('splashCardProse').innerHTML = `<p class="src-line"><b>${esc(payoff.name)}</b> (${kind}) needs ` +
-          `<span class="req">${esc(need)} icons</span> on the board plus its ${cost} RAM cost — ` +
-          `the deck carries ${sourceLine} qualifying persistent sources. ${timing}</p>`;
-        $('splashHistNote').textContent = `Share of simulated games by the turn ${payoff.name} FIRST came online` +
-          ` (requirement met and ${payoff.persistent ? 'installed' : 'played'}). The gray bar is games where it never happened within your ${maxTurn}-turn horizon.`;
+        const rowIcon = (result.splash.icons[splashPositionView] || []).find(r => r.turn === maxTurn);
+        const atLeast = n => rowIcon ? (rowIcon.at_least.find(a => a.min_icons === n)?.probability || 0) : 0;
+        // Median turn each threshold is first met (from the cumulative curves).
+        const midTurn = n => {
+          const rows = (result.splash.icons[splashPositionView] || []).slice().sort((a, b2) => a.turn - b2.turn);
+          for (const r of rows) if ((r.at_least.find(a => a.min_icons === n)?.probability || 0) >= .5) return r.turn;
+          return null;
+        };
+        const thresholdLines = thresholdList.map(n => {
+          const p = atLeast(n), mid = midTurn(n);
+          return `<li><span class="req">≥ ${n} ${esc(splashWord)} icon${n === 1 ? '' : 's'}</span> — ${pct(p)} of games by turn ${maxTurn}` +
+            `${p > 0 && mid !== null && mid <= maxTurn ? ` (usually met around turn ${mid})` : ''}.</li>`;
+        }).join('');
+        // Payoff menu: every requirement-bearing package card with its odds.
+        const payLines = splashPayoffs.map(p => {
+          const row = (result.card_first_play || []).find(r => r.card_id === p.card_id && r.position === splashPositionView && r.turn === maxTurn);
+          const need = Object.entries(p.requirement || {}).map(([f, c]) => `${c} ${f.toLowerCase()}`).join(' + ');
+          const kind = p.persistent ? 'persistent' : 'script';
+          return `<li><b>${esc(p.name)}</b> <span class="hint">(${kind} · needs ${esc(need)})</span> — ` +
+            `${row ? pct(row.probability) : '—'} of games had it played/online by turn ${maxTurn}.</li>`;
+        }).join('');
+        $('splashCardProse').innerHTML =
+          `<p class="src-line"><b>When the requirements come online</b> — P(board icons ≥ n), going ${splashPositionView === 'first' ? 'first' : 'second'}:</p><ul>${thresholdLines}</ul>` +
+          `<p class="src-line"><b>Payoffs</b> (each also needs its own RAM cost):</p><ul>${payLines}</ul>`;
+        $('splashHistNote').textContent = `Share of simulated games where the board holds at least n ${splashWord} icons, by end of turn. Each line is a requirement level printed on a package card; a payoff comes online once every line it needs is met and its RAM cost is paid.`;
         // Splash tax: real deck vs neutral-filler swap at the same budget, at the horizon.
         const taxRows = result.splash.tax ? tiers.map(tier => {
           const base = curves.find(r => r.tier === tier.tier && r.position === splashPositionView && r.turn === maxTurn);
