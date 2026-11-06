@@ -74,6 +74,18 @@ const run = new Function('globalThis', 'hosts', code + `
     const result = await engine.analyze(parsed, mf, { trials: 800, turns: 12 }, p => {});
     render(result);
     render(result); // second pass to catch state pollution
+    // splash pass: NEXUS + a MYSTIC package with real payoffs
+    const nexus = catalog.cards.find(c => c.type === 'MAINFRAME' && c.name === 'NEXUS');
+    const pkg = ['THE SPIRIT REALM', 'ZEN GARDEN', 'THIRD EYE', 'PSYCHIC', 'SEER'].map(name => {
+      const card = catalog.cards.find(c => c.name === name);
+      return { card_id: card.id, name, copies: 3 };
+    });
+    const entries = parsed.entries.concat(pkg);
+    const deck = entries.flatMap(row => Array(row.copies).fill(catalog.cards.find(c => c.id === row.card_id)));
+    const splashParsed = { ...parsed, entries, deck, deckCount: entries.reduce((sum, row) => sum + row.copies, 0) };
+    const splashResult = await engine.analyze(splashParsed, nexus, { trials: 600, turns: 10, splash_factions: ['MYSTIC'] }, p => {});
+    if (!splashResult.splash || !splashResult.splash.tax) throw new Error('splash telemetry missing');
+    render(splashResult);
     return {
       verdictCards: (hosts.verdict.$html.match(/class="card"/g) || []).length,
       compositionLen: hosts.composition.$html.length,
@@ -85,7 +97,12 @@ const run = new Function('globalThis', 'hosts', code + `
       ramNoteLen: ((hosts.ramNote.$html || hosts.ramNote.textContent) || '').length,
       ramChildren: hosts.ramChart.children.length,
       quitLen: (hosts.quitLine.textContent || hosts.quitLine.$html || '').length,
-      warningsLen: hosts.warnings.$html.length
+      warningsLen: hosts.warnings.$html.length,
+      splashChildren: hosts.splashChart.children.length,
+      splashChipCount: (hosts.splashChips.$html.match(/class="chip"/g) || []).length,
+      splashTaxCount: (hosts.splashTaxChips.$html.match(/class="chip"/g) || []).length,
+      splashTitleLen: (hosts.splashTitle.textContent || hosts.splashTitle.$html || '').length,
+      splashLinesLen: (hosts.splashLines.$html || '').length
     };
   } };`);
 
@@ -105,6 +122,11 @@ const run = new Function('globalThis', 'hosts', code + `
   if (!out.ramChildren) fail.push('ram chart empty');
   if (!out.quitLen) fail.push('quit line missing');
   if (!out.warningsLen) fail.push('warnings missing');
+  if (!out.splashChildren) fail.push('splash chart empty');
+  if (out.splashChipCount < 3) fail.push('splash chips missing');
+  if (out.splashTaxCount < 1) fail.push('splash tax chips missing');
+  if (!out.splashTitleLen) fail.push('splash title missing');
+  if (!out.splashLinesLen) fail.push('splash lines missing');
   if (fail.length) { console.error('FAIL: ' + fail.join('; ')); process.exit(1); }
   console.log('render harness PASS');
 })().catch(e => { console.error('FAIL', e && e.stack || e); process.exit(1); });

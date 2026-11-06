@@ -124,6 +124,10 @@
     .chip .k { display:block; font-size:12px; color:var(--muted); }
     .chip .v { font:700 20px/1.3 "Courier New",ui-monospace,monospace; }
     .chip .ci { display:none; }
+    .chip .sub { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
+    .splash-choice { display:flex; gap:9px; align-items:flex-start; margin:9px 0; font-size:13.5px; }
+    .splash-choice input[type=checkbox] { width:auto; margin-top:3px; accent-color:var(--action); flex:0 0 auto; }
+    .splash-choice .sub { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
     .src-line { margin:8px 0 2px; font-size:13.5px; }
     .src-line .req { color:var(--muted); }
     .hand-line { margin:8px 0; font-size:14px; }
@@ -213,6 +217,11 @@
       <div class="label-row"><label for="ramTarget">Simulated RAM budget</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About Simulated RAM budget" aria-expanded="false">i</button><span class="info-popover" role="tooltip">How much RAM the simulated player builds each game before switching to drawing cards. It is not free RAM, a Mainframe requirement, or the RAM-deck size.</span></span></div>
       <select id="ramTarget"><option value="auto" selected>Chosen automatically</option><option value="4">Stop at 4 installed RAM</option><option value="6">Stop at 6 installed RAM</option><option value="8">Stop at 8 installed RAM</option><option value="10">Stop at 10 installed RAM</option><option value="12">Stop at 12 installed RAM</option><option value="16">Stop at 16 installed RAM</option><option value="20">Stop at 20 installed RAM</option></select>
       <p class="setting-explanation">Automatic tests several stopping points, then uses the one that reached this Mainframe's tiers earliest in pilot games.</p>
+      <div id="splashOptions" hidden>
+        <div class="label-row"><label>Splash packages</label><span class="info-wrap"><button class="info-button" type="button" aria-label="About splash packages" aria-expanded="false">i</button><span class="info-popover" role="tooltip">A splash package is a faction your Mainframe's tiers never ask for. Tracking it nudges the simulated player to deploy those cards, protects them in the opening-hand keep, and raises the RAM budget when a payoff needs the headroom.</span></span></div>
+        <div id="splashChoices"></div>
+        <p class="setting-explanation">Tracking a package shows when its payoffs come online, the board-icon supply behind them, and what the package costs your tiers (splash tax). It roughly doubles calculation time.</p>
+      </div>
       <button class="submit" id="analyze" type="button" disabled>Calculate curves</button>
       <div id="inputError" class="error" hidden></div>
       <div class="note"><strong>Structural model.</strong> Turn estimates omit printed card effects, tokens, attacks, opponent interaction, and lethal endings. The heuristic may force quit characters. Your deck stays in this browser.</div>
@@ -237,6 +246,18 @@
             <div class="stepper"><button class="step-btn minus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Decrease turn">−</button><input id="milestoneTurn" type="number" inputmode="numeric" min="1" step="1" value="6" aria-describedby="milestoneHelp"><button class="step-btn plus" type="button" data-for="milestoneTurn" data-min="1" data-max="40" aria-label="Increase turn">+</button></div>
             <span id="milestoneHelp" class="hint">Each chip is one tier at the chosen turn: going first on top, going second under it. Hover a chip for its standard error.</span></div>
               <div id="milestoneChips" class="chips"></div></div>
+        <div class="section" id="splashSection" hidden>
+          <h2 id="splashTitle">Splash</h2>
+          <div id="splashLines"></div>
+          <div class="segmented" id="splashToggle" role="group" aria-label="Which position to chart for the splash package">
+            <button type="button" data-pos="first" class="on" aria-pressed="true">Going first</button>
+            <button type="button" data-pos="second" aria-pressed="false">Going second</button>
+          </div>
+          <div class="chart-box"><div id="splashChart"></div></div>
+          <div id="splashChips" class="chips"></div>
+          <div id="splashTaxChips" class="chips"></div>
+          <p class="hint" id="splashNote"></p>
+        </div>
         <div class="section"><h2>Why — the deck and the draw</h2>
           <h3>Opening hand (5 cards)</h3>
           <div id="handLines"></div>
@@ -249,6 +270,6 @@
       </div>
     </section>
   </main>
-  <script src="catalog.js?v=20261105-6"></script><script src="engine.js?v=20261105-6"></script><script src="app.js?v=20261105-6"></script>
+  <script src="catalog.js?v=20261105-7"></script><script src="engine.js?v=20261105-7"></script><script src="app.js?v=20261105-7"></script>
 </body>
 </html>

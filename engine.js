@@ -246,6 +246,8 @@
     }
     state.hand.splice(state.hand.indexOf(card), 1);
     state.board.push({ id: state.nextBoardId++, card, usedPorts: [], committedRam, hostId });
+    // First time this card got played (splash payoff telemetry; cheap, always on).
+    if (state.reqTurns[card.id] === undefined) state.reqTurns[card.id] = turn;
     checkTiers(state, turn);
   }
 
@@ -280,9 +282,21 @@
     counts ||= synergy(state);
     let gain = 0;
     for (const tier of state.mainframe.tiers) {
-      if (state.reached[tier.tier] !== undefined) continue;
+      if (state.reached[tier.tier] !== undefined) { gain += 4; continue; }
       if (state.board.length < tier.board_requirement) gain++;
       for (const [faction, needed] of Object.entries(tier.faction_requirements)) {
+        const icons = card.factions.filter(f => f === faction).length;
+        gain += Math.min(icons, Math.max(0, needed - (counts[faction] || 0)));
+      }
+    }
+    // Splash payoffs: when a package is tracked, progress toward its printed
+    // requirements counts too, and playing an unplayed payoff itself is worth
+    // a bonus. Without this the policy never deploys splash pieces (they earn
+    // zero tier progress) and splash curves would always read zero.
+    if (state.splashPayoffs) for (const payoff of state.splashPayoffs) {
+      if (state.reqTurns[payoff.id] !== undefined) continue;
+      if (payoff.id === card.id) { gain += 1.5; continue; }
+      for (const [faction, needed] of Object.entries(payoff.requirements || {})) {
         const icons = card.factions.filter(f => f === faction).length;
         gain += Math.min(icons, Math.max(0, needed - (counts[faction] || 0)));
       }
@@ -334,10 +348,13 @@
     return 'draw';
   }
 
-  function simulate(deck, mainframe, first, seed, turns, ramTarget) {
+  function simulate(deck, mainframe, first, seed, turns, ramTarget, splash) {
     const shuffled = shuffle(deck, seed);
     let hand = Array.from({ length: 5 }, () => shuffled.pop());
     const relevant = new Set(mainframe.tiers.flatMap(tier => Object.keys(tier.faction_requirements)));
+    // A splash package's pieces are load-bearing too: the opening-hand keep
+    // rule protects them the same way it protects tier pieces.
+    if (splash) for (const faction of splash.factions) relevant.add(faction);
     const keep = hand.filter(card => card.persistent && card.cost !== null && card.cost <= 2 &&
       card.factions.some(faction => relevant.has(faction)));
     if (keep.length < 3) {
@@ -346,7 +363,8 @@
       shuffled.unshift(...bottom);
     }
     const state = { mainframe, hand, deck: shuffled, board: [], nextBoardId: 1,
-      ramInstalled: 0, ramCommitted: 0, ramFree: 0, reached: {}, tierRam: {}, forceQuits: 0 };
+      ramInstalled: 0, ramCommitted: 0, ramFree: 0, reached: {}, tierRam: {}, forceQuits: 0,
+      reqTurns: {}, boardIcons: splash ? {} : null, splashPayoffs: splash ? splash.payoffs : null };
     for (let turn = 1; turn <= turns; turn++) {
       state.ramFree = state.ramInstalled - state.ramCommitted;
       const choices = first && turn === 1 ? 1 : 2;
@@ -357,7 +375,15 @@
       }
       chooseForceQuits(state, turn);
       deploy(state, turn);
-      if (Object.keys(state.reached).length === mainframe.tiers.length) break;
+      // End-of-turn faction icons on the board (splash resource telemetry).
+      if (state.boardIcons) state.boardIcons[turn] = synergy(state);
+      if (Object.keys(state.reached).length === mainframe.tiers.length) {
+        // The game is over; carry the final board forward so cumulative
+        // splash curves stay defined through the full horizon.
+        if (state.boardIcons)
+          for (let rest = turn + 1; rest <= turns; rest++) state.boardIcons[rest] = state.boardIcons[turn];
+        break;
+      }
     }
     return state;
   }
@@ -370,8 +396,42 @@
       successes === trials ? 1 : Math.min(1, center + radius)];
   }
 
-  const AZUNIVERSE_DECK_URL = /^https?:\/\/([a-z0-9-]+\.)?azuniverse\.net\/decks\/([A-Za-z0-9]+)\/?([?#].*)?$/;
+  // Splash packages: factions the deck plays that this Mainframe's tiers
+  // never ask for. Payoff candidates are the requirement-bearing cards in
+  // those factions — Scripts count as payoffs too (they get PLAYED, they
+  // just never go "online" like persistent cards do).
+  function detectSplashPackages(deck, mainframe) {
+    const tierFactions = new Set(mainframe.tiers.flatMap(tier => Object.keys(tier.faction_requirements)));
+    const byFaction = {};
+    for (const card of deck) {
+      if (card.type === 'MAINFRAME') continue;
+      for (const faction of card.factions) {
+        if (tierFactions.has(faction)) continue;
+        const bucket = byFaction[faction] || (byFaction[faction] = { copies: 0, payoffs: new Map() });
+        bucket.copies++;
+        if (Object.keys(card.requirements || {}).length)
+          bucket.payoffs.set(card.id, card);
+      }
+    }
+    return Object.entries(byFaction)
+      .map(([faction, bucket]) => ({ faction, cards: bucket.copies,
+        payoffs: [...bucket.payoffs.values()] }))
+      .filter(pkg => pkg.cards >= 3)
+      .sort((a, b) => b.cards - a.cards);
+  }
 
+  // Splash-tax filler: a synthetic cost-matched neutral character. The swap
+  // removes the package's faction icons while preserving its RAM profile, so
+  // the A/B isolates faction value rather than cost difference.
+  function taxFiller(swapped) {
+    const costs = swapped.map(card => card.cost).filter(cost => cost !== null).sort((a, b) => a - b);
+    const cost = costs.length ? costs[Math.floor((costs.length - 1) / 2)] : 1;
+    return { id: 'TAX-FILLER', name: 'Neutral filler', type: 'CHARACTER', subtype: '', cost,
+      factions: [], requirements: {}, ports: {}, iconic: false, persistent: true,
+      copy_limit: 999, has_ability: false, tiers: [] };
+  }
+
+  const AZUNIVERSE_DECK_URL = /^https?:\/\/([a-z0-9-]+\.)?azuniverse\.net\/decks\/([A-Za-z0-9]+)\/?([?#].*)?$/;
   // Find the first balanced JSON object in a text blob (used when a relay
   // wraps the payload in markdown or HTML).
   function jsonFromLooseText(text) {
@@ -457,6 +517,21 @@
       throw new Error('Select 50–5,000 trials per position');
     const signature = `${mainframe.id}|${parsed.entries.map(row => `${row.card_id}:${row.copies}`).join('|')}`;
     const seed = hash32(signature);
+    // Splash tracking: settings.splash_factions lists the deck factions the
+    // caller wants tracked as splash packages (empty/absent = off). A chosen
+    // faction is valid when the Mainframe's tiers don't already require it;
+    // its payoff candidates are the requirement-bearing cards in that faction.
+    const tierFactions = new Set(mainframe.tiers.flatMap(tier => Object.keys(tier.faction_requirements)));
+    const splashFactions = [...new Set((Array.isArray(settings.splash_factions) ? settings.splash_factions : [])
+      .filter(f => typeof f === 'string' && f && !tierFactions.has(f)))];
+    const splashSelection = splashFactions.length ? {
+      factions: splashFactions,
+      payoffs: [...new Map(deck.filter(card => splashFactions.some(f => card.factions.includes(f))
+        && Object.keys(card.requirements || {}).length).map(card => [card.id, card])).values()]
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      thresholds: [...new Set(deck.filter(card => splashFactions.some(f => card.factions.includes(f)))
+        .flatMap(card => Object.values(card.requirements || {})))].sort((a, b) => a - b)
+    } : null;
     progress({ phase: 'Calculating exact draw odds', completed: 0, total: 1 });
     const drawOnly = drawReference(deck, mainframe);
     await yieldFrame();
@@ -467,16 +542,27 @@
     const pilotTotal = RAM_TARGETS.length * 2 * pilotTrials;
     let ramTarget = requestedTarget;
     const pilotScores = [];
+    let splashFloor = false;
     if (ramTarget === null) {
       const horizon = Math.min(6, turns);
       let pilotCompleted = 0;
       for (const target of RAM_TARGETS) {
         let score = 0;
         for (const first of [true, false]) for (let trial = 0; trial < pilotTrials; trial++) {
-          const state = simulate(deck, mainframe, first, seed + trial, horizon, target);
+          const state = simulate(deck, mainframe, first, seed + trial, horizon, target,
+            splashSelection ? { factions: splashSelection.factions, payoffs: splashSelection.payoffs } : null);
           for (const tier of mainframe.tiers) {
             const hit = state.reached[tier.tier];
             if (hit !== undefined && hit <= horizon) score += horizon - hit + 1;
+          }
+          // When a splash package is tracked, its persistent payoffs coming
+          // online also counts toward a budget's score (softened so the
+          // Mainframe's own tiers stay primary). Otherwise the auto budget
+          // never leaves room for expensive payoffs like a cost-7 environment.
+          if (splashSelection) for (const payoff of splashSelection.payoffs) {
+            if (!payoff.persistent) continue;
+            const hit = state.reqTurns[payoff.id];
+            if (hit !== undefined) score += (horizon - hit + 1) / (splashSelection.payoffs.length + 1);
           }
           pilotCompleted++;
         }
@@ -486,13 +572,61 @@
       }
       pilotScores.sort((a, b) => b.score - a.score || a.ram_target - b.ram_target);
       ramTarget = pilotScores[0].ram_target;
+      // A tracked splash package may carry payoffs pricier than the
+      // tier-optimal budget would ever afford (a cost-7 environment under a
+      // budget of 4 never deploys, so its curve would read zero for budget
+      // reasons, not deck reasons). A player running the package builds RAM
+      // to cast it, so raise the budget to the priciest persistent payoff
+      // (capped at 16) and disclose the raise.
+      if (splashSelection) {
+        const costs = splashSelection.payoffs.filter(card => card.persistent)
+          .map(card => card.cost).filter(cost => cost !== null);
+        if (costs.length) {
+          const floor = Math.min(16, Math.max(...costs));
+          if (ramTarget < floor) { ramTarget = floor; splashFloor = true; }
+        }
+      }
     }
     const hits = new Map(), quits = { first: 0, second: 0 }, quitTotals = { first: 0, second: 0 };
     const ramAtTier = { first: {}, second: {} };  // tier -> {installed: [...], free: [...]}
     const stride = Math.max(1, Math.min(25, Math.floor(trials / 20)));
+    // Splash telemetry accumulators: payoff play/online turns, end-of-turn
+    // board icons for the package faction, and (optional) splash-tax rerun.
+    const splash = splashSelection;
+    const payoffs = splash ? splash.payoffs : [];
+    const factions = splash ? splash.factions : [];
+    const reqHits = new Map(), iconTotals = {}, iconAtLeast = {};
+    const thresholds = splash ? splash.thresholds : [];
+    for (const position of ['first', 'second']) {
+      iconTotals[position] = {}; iconAtLeast[position] = {};
+      for (let turn = 1; turn <= turns; turn++) {
+        iconTotals[position][turn] = 0;
+        iconAtLeast[position][turn] = {};
+        for (const needed of thresholds) iconAtLeast[position][turn][needed] = 0;
+      }
+    }
     for (const position of ['first', 'second']) {
       for (let trial = 0; trial < trials; trial++) {
-        const state = simulate(deck, mainframe, position === 'first', seed + 1000000 + trial, turns, ramTarget);
+        const state = simulate(deck, mainframe, position === 'first', seed + 1000000 + trial, turns, ramTarget,
+          splash ? { factions, payoffs } : null);
+        if (splash) {
+          for (let turn = 1; turn <= turns; turn++) {
+            const counts = state.boardIcons[turn] || {};
+            let total = 0;
+            for (const faction of factions) total += counts[faction] || 0;
+            iconTotals[position][turn] += total;
+            for (const needed of thresholds)
+              if (total >= needed) iconAtLeast[position][turn][needed]++;
+          }
+          for (const card of payoffs) {
+            const hit = state.reqTurns[card.id];
+            if (hit !== undefined)
+              for (let turn = hit; turn <= turns; turn++) {
+                const k = `${card.id}|${position}|${turn}`;
+                reqHits.set(k, (reqHits.get(k) || 0) + 1);
+              }
+          }
+        }
         quits[position] += state.forceQuits > 0 ? 1 : 0;
         quitTotals[position] += state.forceQuits;
         for (const tier of mainframe.tiers) {
@@ -513,6 +647,65 @@
         }
       }
     }
+    // Splash curves from the accumulators, if a package was tracked.
+    const splashCurves = [];
+    const splashIcons = { first: [], second: [] };
+    if (splash) {
+      for (const position of ['first', 'second']) {
+        for (const card of payoffs)
+          for (let turn = 1; turn <= turns; turn++) {
+            const reached = reqHits.get(`${card.id}|${position}|${turn}`) || 0;
+            const [low, high] = wilson(reached, trials);
+            splashCurves.push({ card_id: card.id, name: card.name, persistent: !!card.persistent,
+              position, turn, reached_count: reached, trials, probability: reached / trials,
+              wilson_95_low: low, wilson_95_high: high });
+          }
+        for (let turn = 1; turn <= turns; turn++) {
+          const atLeast = Object.entries(iconAtLeast[position][turn])
+            .map(([needed, count]) => ({ min_icons: Number(needed), probability: count / trials }));
+          splashIcons[position].push({ turn, mean_icons: iconTotals[position][turn] / trials, at_least: atLeast });
+        }
+      }
+    }
+    // Splash-tax A/B: rerun the same games with the splash package's copies
+    // swapped for neutral fillers, isolating what the package costs the
+    // Mainframe's own tiers. Only when a package is tracked and neutral
+    // filler cards exist in the deck.
+    let splashTax = null;
+    if (splash) {
+      const splashSet = new Set(deck.filter(card => splash.factions.some(f => card.factions.includes(f))));
+      const swapPool = deck.filter(card => splashSet.has(card));
+      if (swapPool.length) {
+        const filler = taxFiller(swapPool);
+        const neutralDeck = deck.filter(card => !splashSet.has(card))
+          .concat(Array.from({ length: swapPool.length }, () => filler));
+        const taxHits = new Map();
+        for (const position of ['first', 'second']) {
+          for (let trial = 0; trial < trials; trial++) {
+            const state = simulate(neutralDeck, mainframe, position === 'first', seed + 1000000 + trial, turns, ramTarget, null);
+            for (const tier of mainframe.tiers) {
+              const hit = state.reached[tier.tier];
+              if (hit !== undefined)
+                for (let turn = hit; turn <= turns; turn++) {
+                  const k = `${tier.tier}|${position}|${turn}`;
+                  taxHits.set(k, (taxHits.get(k) || 0) + 1);
+                }
+            }
+            if ((trial + 1) % stride === 0 || trial + 1 === trials) {
+              progress({ phase: 'Simulating splash-tax comparison', stage: 'main', completed: trial + 1, total: trials, position });
+              await yieldFrame();
+            }
+          }
+        }
+        const taxCurves = [];
+        for (const tier of mainframe.tiers) for (const position of ['first', 'second'])
+          for (let turn = 1; turn <= turns; turn++) {
+            const reached = taxHits.get(`${tier.tier}|${position}|${turn}`) || 0;
+            taxCurves.push({ tier: tier.tier, position, turn, probability: reached / trials, trials });
+          }
+        splashTax = { filler_card: { id: filler.id, name: filler.name, cost: filler.cost }, curves: taxCurves };
+      }
+    }
     const curves = [];
     for (const tier of mainframe.tiers) for (const position of ['first', 'second'])
       for (let turn = 1; turn <= turns; turn++) {
@@ -521,6 +714,12 @@
         curves.push({ tier: tier.tier, position, turn, reached_count: reached,
           trials, probability: reached / trials, wilson_95_low: low, wilson_95_high: high });
       }
+    // Embed the neutral-swap probabilities on the base curve rows too, so
+    // consumers can chart the A/B without joining on (tier, position, turn).
+    if (splashTax) for (const row of curves) {
+      const match = splashTax.curves.find(r => r.tier === row.tier && r.position === row.position && r.turn === row.turn);
+      if (match) row.splash_tax_probability = match.probability;
+    }
     const summaries = {};
     for (const tier of mainframe.tiers) summaries[tier.tier] = sourceSummary(deck, tier);
     // Installed/free RAM at the moment each tier first came online, per position.
@@ -543,6 +742,8 @@
       }
     }
     const warnings = [LIMITS];
+    if (splash && !payoffs.length)
+      warnings.push('The tracked splash package has no requirement-bearing payoffs; only board icons are shown.');
     if (deck.some(card => card.type === 'PROGRAM' && card.subtype === 'SCRIPT'))
       warnings.push('Scripts are included as draws; their printed effects are not simulated.');
     if (deck.some(card => card.has_ability)) warnings.push('Printed abilities on deck cards are not executed.');
@@ -551,10 +752,13 @@
       deck_size: deck.length, deck_signature: signature, deck_entries: parsed.entries,
       source_summary_by_tier: summaries,
       settings: { trials_per_position: trials, turns, ram_target: ramTarget,
-        ram_target_selection: requestedTarget === null ? 'equal-tier/equal-turn pilot' : 'manual',
+        ram_target_selection: (requestedTarget === null ? 'equal-tier/equal-turn pilot' : 'manual') + (splashFloor ? ' + splash floor' : ''),
         pilot_trials_per_position_per_target: pilotTrials, pilot_scores: pilotScores },
       draw_only: drawOnly, curves,
       ram_to_tier: ramToTier,
+      splash: splash ? { factions: splash.factions, payoffs: payoffs.map(card => ({ card_id: card.id, name: card.name,
+        persistent: !!card.persistent, requirement: card.requirements })),
+      curves: splashCurves, icons: splashIcons, tax: splashTax } : null,
       force_quit: Object.fromEntries(['first', 'second'].map(position => [position,
         { share_trials_with_quit: quits[position] / trials, mean_character_quits: quitTotals[position] / trials }])),
       warnings };

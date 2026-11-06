@@ -26,10 +26,11 @@
       btn.addEventListener('click', event => { if (event.detail === 0) apply(); });
     }
     const colors = ['#24C8A5','#E25C8D','#F4B942','#8B7CF6','#56B4E9','#F0785A'];
-    const lineStyles = ['', '8 5', '2 4', '', '8 5', '2 4'];
     const chartRedraws = [];
     const catalog = globalThis.NEUROSCAPE_CATALOG;
     const engine = globalThis.NEUROSCAPE_ENGINE;
+    const FACTION_GLYPH = { HACKER:'⌘', 'A.I.':'◉', ANARCHIST:'✊', WONDERLAND:'Rabbit', CYBERNETIC:'⚙', ANIMAL:'🐾',
+      THRASHER:'🎸', MECH:'🦾', RAVER:'♪', CORPO:'♟', ROBOT:'🤖', GAMBLER:'🎲', POLITICIAN:'📜', DUSTRUNNER:'☄', MYSTIC:'✦', NANOBOT:'⬡' };
     let latest = null, currentParse = null;
     const pct = value => `${(100 * value).toFixed(1)}%`;
     const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -163,10 +164,126 @@
           b.classList.toggle('on', on);
           b.setAttribute('aria-pressed', String(on));
         }
-        drawCurve(); renderRam(); renderChips();
+        drawCurve(); renderRam(); renderChips(); renderSplash();
       };
       for (const b of document.querySelectorAll('#positionToggle button'))
         b.addEventListener('click', () => { positionView = b.dataset.pos; applyPositionView(); });
+      // --- dedicated splash section (only when a package was tracked) ---
+      $('splashSection').hidden = !result.splash;
+      const splashPayoffs = result.splash ? result.splash.payoffs : [];
+      let maxThreshold = 1;
+      let drawSplash = () => {};
+      let renderSplash = () => {};
+      if (result.splash) {
+      $('splashTitle').textContent = `Splash — ${result.splash.factions.join(' + ').toLowerCase()} package`;
+      const splashCardCopies = result.deck_entries.filter(entry => {
+        const card = catalog.cards.find(item => item.id === entry.card_id);
+        return card && result.splash.factions.some(f => card.factions.includes(f)) && card.type !== 'MAINFRAME';
+      }).reduce((sum, entry) => sum + entry.copies, 0);
+      $('splashLines').innerHTML = `<p class="src-line"><b>${result.splash.factions.map(f => f.toLowerCase()).join(' / ')}</b> off-plan for this Mainframe — `+
+        `<b>${splashCardCopies}</b> copies in the deck (${pct(splashCardCopies / result.deck_size)}). Payoffs tracked: `+
+        `${splashPayoffs.map(p => `${esc(p.name)}${p.persistent ? '' : ' (played, not installed)'}`).join(', ') || 'none'}.</p>`;
+      drawSplash = () => {
+        const host = $('splashChart');
+        host.replaceChildren();
+        if (!result.splash) return;
+        const tall = host.clientWidth > 0 && host.clientWidth < 430;
+        const w = tall ? 340 : 960, h = tall ? 430 : 400, l = tall ? 46 : 52, r = tall ? 16 : 96, t = 20, b = 46;
+        const fs = 14;
+        const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
+        const sx = x => l + (x - 1) / Math.max(1, maxTurn - 1) * (w - l - r);
+        const sy = y => t + (1 - y) * (h - t - b);
+        const svg = svgNode('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img',
+          'aria-label': 'Splash payoff play/online curves and board-icon supply by turn' });
+        for (const value of [0, .25, .5, .75, 1]) {
+          if (value) svg.append(svgNode('line', { x1: l, y1: sy(value), x2: w - r, y2: sy(value), stroke: fillGrid }));
+          svg.append(svgNode('text', { x: l - 9, y: sy(value) + 5, 'text-anchor': 'end', fill: fillAxis, 'font-size': fs }, (value * 100) + '%'));
+        }
+        const stride = maxTurn > 16 ? 4 : maxTurn > 8 ? 2 : 1;
+        for (let x = 1; x <= maxTurn; x += stride) {
+          svg.append(svgNode('line', { x1: sx(x), y1: h - b, x2: sx(x), y2: h - b + 6, stroke: fillGrid }));
+          svg.append(svgNode('text', { x: sx(x), y: h - b + 24, 'text-anchor': 'middle', fill: fillX, 'font-size': fs }, String(x)));
+        }
+        svg.append(svgNode('text', { x: l + 22, y: h - 4, 'text-anchor': 'start', fill: fillX, 'font-size': fs }, 'Turn'));
+        // Resource context: share of games with enough icons on board (solid,
+        // muted) — the supply line that explains late payoff curves.
+        const iconRows = result.splash.icons[positionView];
+        const maxThreshold = Math.max(...splashPayoffs.map(p =>
+          Math.max(...Object.values(p.requirement || { x: 1 }))));
+        if (iconRows.length) {
+          const parts = ['M ' + sx(iconRows[0].turn) + ' ' + sy(iconRows[0].at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0)];
+          for (const row of iconRows.slice(1))
+            parts.push('H ' + sx(row.turn) + ' V ' + sy(row.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0));
+          svg.append(svgNode('path', { d: parts.join(' '), fill: 'none', stroke: '#7B8992', 'stroke-width': 2 }));
+          const last = iconRows[iconRows.length - 1];
+          svg.append(svgNode('text', { x: sx(last.turn) + 9, y: sy(last.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0) + 5,
+            'text-anchor': 'start', fill: '#7B8992', 'font-size': fs }, `board has ${maxThreshold}+ icons`));
+        }
+        // Payoff curves: dashed for scripts (played once), solid for persistents.
+        splashPayoffs.forEach((payoff, index) => {
+          const series = result.splash.curves.filter(r => r.card_id === payoff.card_id && r.position === positionView)
+            .sort((a2, b2) => a2.turn - b2.turn);
+          if (!series.length) return;
+          const color = colors[(index + 4) % colors.length];
+          const parts = ['M ' + sx(series[0].turn) + ' ' + sy(series[0].probability)];
+          for (let i = 1; i < series.length; i++)
+            parts.push('H ' + sx(series[i].turn) + ' V ' + sy(series[i].probability));
+          const attrs = { d: parts.join(' '), fill: 'none', stroke: color, 'stroke-width': 2.5, 'stroke-linejoin': 'round' };
+          if (!payoff.persistent) attrs['stroke-dasharray'] = '8 5';          svg.append(svgNode('path', attrs));
+          const last = series[series.length - 1];
+          svg.append(svgNode('text', { x: sx(last.turn) + 9, y: sy(last.probability) + 5, 'text-anchor': 'start',
+            fill: color, 'font-size': fs + 1, 'font-weight': 700 },
+            payoff.name + ' · ' + last.turn));
+        });
+        host.append(svg);
+      };
+      drawSplash();
+      chartRedraws.push(drawSplash);
+      renderSplash = () => {
+        drawSplash();
+        if (!result.splash) { $('splashChips').innerHTML = ''; $('splashTaxChips').innerHTML = ''; $('splashNote').textContent = ''; return; }
+        const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
+        $('splashChips').innerHTML = splashPayoffs.map(payoff => {
+          const row = result.splash.curves.find(r => r.card_id === payoff.card_id && r.position === positionView && r.turn === turn);
+          if (!row) return '';
+          const se = Math.sqrt(row.probability * (1 - row.probability) / row.trials);
+          const color = colors[(splashPayoffs.indexOf(payoff) + 4) % colors.length];
+          return '<div class="chip" title="' + esc(payoff.name) + ' ' + (payoff.persistent ? 'online' : 'played') +
+            ' by turn ' + turn + ', going ' + positionView + ': ' + pct(row.probability) + ' ± ' + (100 * se).toFixed(1) + '% (standard error)">' +
+            '<span class="k">' + esc(payoff.name) + (payoff.persistent ? ' online' : ' played') + ' · turn ' + turn + ' · ' + positionView + '</span>' +
+            '<span class="v" style="color:' + color + '">' + pct(row.probability) + '</span>' +
+            '<span class="sub">' + (payoff.persistent ? 'installed on board' : 'script, played once') + '</span></div>';
+        }).join('') +
+          (() => {
+            const iconRow = result.splash.icons[positionView].find(r => r.turn === turn);
+            if (!iconRow) return '';
+            return '<div class="chip"><span class="k">' + esc(result.splash.factions.join(' + ').toLowerCase()) +
+              ' icons on board · turn ' + turn + ' · ' + positionView + '</span>' +
+              '<span class="v">' + iconRow.mean_icons.toFixed(1) + '</span>' +
+              '<span class="sub">average; ' + pct(iconRow.at_least.find(a2 => a2.min_icons === maxThreshold)?.probability || 0) +
+              ' of games reach ' + maxThreshold + '+</span></div>';
+          })();
+        // Splash tax: real deck vs neutral-filler swap at the same budget.
+        const taxRows = result.splash.tax ? tiers.map(tier => {
+          const base = curves.find(r => r.tier === tier.tier && r.position === positionView && r.turn === turn);
+          const neutral = result.splash.tax.curves.find(r => r.tier === tier.tier && r.position === positionView && r.turn === turn);
+          return { tier, base, neutral };
+        }).filter(r => r.base && r.neutral) : [];
+        $('splashTaxChips').innerHTML = taxRows.length ? taxRows.map(row => {
+          const delta = (row.neutral - row.base.probability) * 100;
+          const verdict = delta <= 0.05 ? 'no cost' : 'costs ' + delta.toFixed(1) + 'pts';
+          return '<div class="chip"><span class="k">splash tax · tier ' + row.tier.tier + ' · by turn ' + turn + ' · ' + positionView + '</span>' +
+            '<span class="v">' + (delta <= 0.05 ? '±0.0' : '+' + delta.toFixed(1)) + 'pts</span>' +
+            '<span class="sub">tiers reach ' + pct(row.base.probability) + ' here vs ' + pct(row.neutral) + ' without the package</span></div>';
+        }).join('') : '';
+        $('splashNote').textContent = 'Payoff curves are dashed for scripts (played once, then gone) and solid for persistents (installed). ' +
+          'The gray supply line is the share of games whose board carried enough icons for the largest payoff. ' +
+          'Tracking nudges the simulated player to deploy splash pieces, protects them in the opening-hand keep, and raises the auto RAM budget when a payoff needs the headroom. ' +
+          'Splash tax compares this deck against the same deck with the package swapped for neutral fillers at the same RAM budget — ' +
+          'it is what the package costs your tiers, not what it pays you back.';
+      };
+      }
+      renderSplash();
       // --- milestone chips (F-1/S-1/F-2/S-2 … at a picked turn) ---
       function renderChips() {
         const turn = Math.max(1, Math.min(maxTurn, Math.round(Number($('milestoneTurn').value) || 6)));
@@ -382,7 +499,44 @@
       box.innerHTML=`<strong>${parsed.deckCount} cyberdeck ${parsed.deckCount===1?'card':'cards'}</strong>`+
         `<small>${esc(parts.join(' · '))}</small>`;
       $('analyze').disabled = !validSize || parsed.errors.length > 0;
+      refreshSplashChoices();
     }
+    // --- splash package detection: factions off-plan for this Mainframe ---
+    function refreshSplashChoices() {
+      const wrap = $('splashOptions'), host = $('splashChoices');
+      if (!currentParse || !currentParse.deck || !catalog || currentParse.errors.length) {
+        wrap.hidden = true; host.innerHTML = ''; return;
+      }
+      const mfName = $('mainframe').value.trim().toLowerCase();
+      const mainframe = catalog.cards.find(card => card.type === 'MAINFRAME' && card.name.toLowerCase() === mfName)
+        || catalog.cards.find(card => card.type === 'MAINFRAME' && card.name.toLowerCase().includes(mfName));
+      if (!mainframe) { wrap.hidden = true; host.innerHTML = ''; return; }
+      const tierFactions = new Set(mainframe.tiers.flatMap(tier => Object.keys(tier.faction_requirements)));
+      const counts = {};
+      for (const card of currentParse.deck) {
+        if (card.type === 'MAINFRAME') continue;
+        for (const faction of card.factions)
+          if (!tierFactions.has(faction)) counts[faction] = (counts[faction] || 0) + 1;
+      }
+      const packages = Object.entries(counts).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]);
+      if (!packages.length) { wrap.hidden = true; host.innerHTML = ''; return; }
+      const payoffsByFaction = {};
+      for (const card of currentParse.deck) {
+        if (card.type === 'MAINFRAME' || !Object.keys(card.requirements || {}).length) continue;
+        for (const faction of card.factions)
+          if (counts[faction]) (payoffsByFaction[faction] = payoffsByFaction[faction] || new Set()).add(card.name);
+      }
+      wrap.hidden = false;
+      const previous = new Set([...host.querySelectorAll('input:checked')].map(input => input.value));
+      host.innerHTML = packages.map(([faction, n]) => {
+        const payoffs = [...(payoffsByFaction[faction] || [])].sort();
+        const glyph = FACTION_GLYPH[faction] || '•';
+        return `<label class="splash-choice"><input type="checkbox" value="${esc(faction)}" ${previous.has(faction) ? 'checked' : ''}>`+
+          `<span><b>${glyph} ${faction.toLowerCase()} splash · ${n} cards</b>`+
+          `<span class="sub">${payoffs.length ? 'payoff potential: ' + esc(payoffs.join(', ')) : 'no requirement-bearing payoffs'}</span></span></label>`;
+      }).join('');
+    }
+    const selectedSplashFactions = () => [...document.querySelectorAll('#splashChoices input:checked')].map(input => input.value);
     function showError(message) {$('inputError').hidden=false;$('inputError').textContent=message;}
     // --- Mainframe combobox: type-to-filter, ArrowUp/Down + Enter selection, Escape closes ---
     function initMainframeCombo(names) {
@@ -399,6 +553,7 @@
         delete input.dataset.typed;
         close();
         updateDeckCount();
+        refreshSplashChoices();
         input.focus();
         input.select();
       };
@@ -457,7 +612,8 @@
         const mainframe=catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase()===wanted)
           || catalog.cards.find(card=>card.type==='MAINFRAME'&&card.name.toLowerCase().includes(wanted));
         const result=await engine.analyze(currentParse,mainframe,
-          {trials:5000,turns,ram_target:$('ramTarget').value},status);
+          {trials:5000,turns,ram_target:$('ramTarget').value,
+          splash_factions:selectedSplashFactions()},status);
         render(result);
       } catch(error) {$('status').hidden=true;showError(error.message);}
       updateDeckCount();
