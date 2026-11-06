@@ -445,26 +445,29 @@
           if (n) data.push({ tier: 'splash', bins, n });
         }
         const toggle = $('ramTierToggle');
-        if (!data.length) {
-          toggle.innerHTML = '';
-          toggle.hidden = true;
-          $('ramNote').textContent = `No games reached any tier going ${positionView === 'first' ? 'first' : 'second'} in this configuration.`;
-          return;
-        }
         toggle.hidden = false;
-        // One button per tier that actually has data for this position —
-        // buttons for dataless tiers used to snap selection back to Tier 1,
-        // which read as a broken button.
-        toggle.replaceChildren(...data.map(d =>
-          dom('button', { type: 'button', 'data-tier': String(d.tier) }, d.tier === 'splash' ? 'Splash' : `Tier ${d.tier}`)));
+        // Every mainframe tier always gets a button (plus Splash when
+        // tracked); a tier with no data for this position shows an
+        // explanatory note instead of silently snapping back to Tier 1.
+        toggle.replaceChildren(...tierNums.map(tier =>
+          dom('button', { type: 'button', 'data-tier': String(tier) }, `Tier ${tier}`))
+          .concat(splashRamData && (splashRamData.note_n.first + splashRamData.note_n.second) > 0 ?
+            [dom('button', { type: 'button', 'data-tier': 'splash' }, 'Splash')] : []));
         for (const b of document.querySelectorAll('#ramTierToggle button'))
           b.addEventListener('click', () => {
             ramTierView = b.dataset.tier === 'splash' ? 'splash' : Number(b.dataset.tier);
             markRamToggle();
             renderRam();
           });
-        if (!data.some(d => d.tier === ramTierView)) ramTierView = data[0].tier;
+        if (ramTierView === null) ramTierView = data.length ? data[0].tier : tierNums[0];
         markRamToggle();
+        if (!data.some(d => d.tier === ramTierView)) {
+          host.replaceChildren();
+          $('ramNote').textContent = ramTierView === 'splash' ?
+            `The splash payoff never came online going ${positionView === 'first' ? 'first' : 'second'} in this configuration — no RAM-at-click data.` :
+            `No games reached Tier ${ramTierView} going ${positionView === 'first' ? 'first' : 'second'} in this configuration.`;
+          return;
+        }
         const fillAxis = '#E8ECF1', fillGrid = '#39424A', fillX = '#96A2AC';
         const d = data.find(x => x.tier === ramTierView);
         const isSplashView = d.tier === 'splash';
